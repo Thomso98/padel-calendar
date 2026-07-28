@@ -1,0 +1,9 @@
+{
+  "name": "padel-calendar",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Calendrier de tournois de padel avec demandes de joueurs (Supabase + Vercel, sans étape de build).",
+  "engines": {
+    "node": ">=18"
+  }
+}

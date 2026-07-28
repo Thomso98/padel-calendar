@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin — Calendrier tournois padel</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <h1>🎾 Admin — Calendrier</h1>
+  <div class="actions">
+    <span id="user-label" class="pill hidden"></span>
+    <a href="index.html" class="pill">← Calendrier public</a>
+    <button id="logout-btn" class="secondary hidden">Se déconnecter</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Auth (même formulaire que la page publique) -->
+  <section id="auth-section" class="card hidden">
+    <div class="auth-tabs">
+      <button id="tab-login" class="active" type="button">Connexion</button>
+      <button id="tab-signup" type="button">Créer un compte</button>
+    </div>
+
+    <form id="form-login" class="stack">
+      <div>
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required />
+      </div>
+      <div>
+        <label for="login-password">Mot de passe</label>
+        <input type="password" id="login-password" required />
+      </div>
+      <button type="submit" class="primary">Se connecter</button>
+    </form>
+
+    <form id="form-signup" class="stack hidden">
+      <div>
+        <label for="signup-name">Nom</label>
+        <input type="text" id="signup-name" required />
+      </div>
+      <div>
+        <label for="signup-email">Email</label>
+        <input type="email" id="signup-email" required />
+      </div>
+      <div>
+        <label for="signup-password">Mot de passe (6 caractères min.)</label>
+        <input type="password" id="signup-password" minlength="6" required />
+      </div>
+      <button type="submit" class="primary">Créer mon compte</button>
+    </form>
+
+    <div id="auth-msg" class="msg"></div>
+  </section>
+
+  <!-- En attente de validation par l'admin (si un non-admin arrive ici avant validation) -->
+  <section id="pending-section" class="card hidden">
+    <p><strong>Votre compte est en attente de validation.</strong></p>
+    <p>Un administrateur doit valider votre compte avant de pouvoir accéder au site.</p>
+  </section>
+
+  <div id="not-admin" class="card hidden">
+    <p><strong>Accès refusé.</strong> Ce compte n'a pas les droits administrateur.</p>
+    <p>Voir le README pour savoir comment vous donner le rôle admin depuis Supabase.</p>
+  </div>
+
+  <section id="app-section" class="hidden">
+
+    <div class="card">
+      <h2>Comptes en attente de validation</h2>
+      <div id="pending-accounts-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Ajouter / modifier un jour</h2>
+      <form id="day-form" class="stack">
+        <div>
+          <label for="day-date">Date</label>
+          <input type="date" id="day-date" required />
+        </div>
+        <div>
+          <label for="day-type">Type de jour</label>
+          <select id="day-type">
+            <option value="rest">Jour de repos (aucune action possible)</option>
+            <option value="available">Tournoi disponible (les utilisateurs peuvent faire une demande)</option>
+            <option value="confirmed">Tournoi confirmé (vous jouez déjà)</option>
+          </select>
+        </div>
+        <div id="tournament-fields" class="stack">
+          <div>
+            <label for="day-tournament-name">Nom du tournoi</label>
+            <input type="text" id="day-tournament-name" />
+          </div>
+          <div>
+            <label for="day-tournament-location">Lieu</label>
+            <input type="text" id="day-tournament-location" />
+          </div>
+        </div>
+        <button type="submit" class="primary">Enregistrer ce jour</button>
+        <div id="day-form-msg" class="msg"></div>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>Demandes en attente</h2>
+      <div id="requests-list"></div>
+    </div>
+
+    <div class="card">
+      <h2>Tous les jours renseignés</h2>
+      <table class="admin-table">
+        <thead>
+          <tr><th>Date</th><th>Type</th><th>Tournoi</th><th>Lieu</th><th></th></tr>
+        </thead>
+        <tbody id="days-table-body"></tbody>
+      </table>
+    </div>
+
+  </section>
+
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/dateUtils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

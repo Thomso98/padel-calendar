@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Calendrier tournois padel</title>
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <h1>🎾 Calendrier tournois</h1>
+  <div class="actions">
+    <span id="user-label" class="pill hidden"></span>
+    <a href="admin.html" class="pill">Admin</a>
+    <button id="logout-btn" class="secondary hidden">Se déconnecter</button>
+  </div>
+</header>
+
+<main>
+
+  <!-- Auth -->
+  <section id="auth-section" class="card hidden">
+    <div class="auth-tabs">
+      <button id="tab-login" class="active" type="button">Connexion</button>
+      <button id="tab-signup" type="button">Créer un compte</button>
+    </div>
+
+    <form id="form-login" class="stack">
+      <div>
+        <label for="login-email">Email</label>
+        <input type="email" id="login-email" required />
+      </div>
+      <div>
+        <label for="login-password">Mot de passe</label>
+        <input type="password" id="login-password" required />
+      </div>
+      <button type="submit" class="primary">Se connecter</button>
+    </form>
+
+    <form id="form-signup" class="stack hidden">
+      <div>
+        <label for="signup-name">Nom</label>
+        <input type="text" id="signup-name" required />
+      </div>
+      <div>
+        <label for="signup-email">Email</label>
+        <input type="email" id="signup-email" required />
+      </div>
+      <div>
+        <label for="signup-password">Mot de passe (6 caractères min.)</label>
+        <input type="password" id="signup-password" minlength="6" required />
+      </div>
+      <button type="submit" class="primary">Créer mon compte</button>
+    </form>
+
+    <div id="auth-msg" class="msg"></div>
+  </section>
+
+  <!-- En attente de validation par l'admin -->
+  <section id="pending-section" class="card hidden">
+    <p><strong>Votre compte est en attente de validation.</strong></p>
+    <p>Un administrateur doit valider votre compte avant que vous puissiez accéder au calendrier. Revenez un peu plus tard, ou reconnectez-vous une fois prévenu.</p>
+  </section>
+
+  <!-- App -->
+  <section id="app-section" class="hidden">
+    <div id="global-msg" class="msg success hidden" style="margin-bottom:12px;"></div>
+    <div class="card">
+      <div class="cal-header">
+        <button id="prev-month" class="secondary">← Précédent</button>
+        <h2 id="cal-title"></h2>
+        <button id="next-month" class="secondary">Suivant →</button>
+      </div>
+      <div id="cal-grid" class="cal-grid"></div>
+    </div>
+
+    <div class="card">
+      <strong>Légende :</strong>
+      <span class="badge rest">Repos</span>
+      <span class="badge confirmed">Tournoi confirmé</span>
+      <span class="badge available">Tournoi possible</span>
+    </div>
+  </section>
+
+</main>
+
+<!-- Modal demande -->
+<div id="request-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="modal-day-name"></h3>
+    <label for="modal-message">Message (optionnel)</label>
+    <textarea id="modal-message" placeholder="Précisez votre demande..."></textarea>
+    <div id="modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="modal-cancel" class="secondary">Annuler</button>
+      <button id="modal-submit" class="primary">Envoyer la demande</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal confirmation d'annulation de demande -->
+<div id="cancel-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Annuler cette demande ?</h3>
+    <p id="cancel-modal-text"></p>
+    <div id="cancel-modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="cancel-modal-no" class="secondary">Non</button>
+      <button id="cancel-modal-yes" class="danger">Oui, annuler</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/supabaseClient.js"></script>
+<script src="js/dateUtils.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/calendar.js"></script>
+</body>
+</html>
