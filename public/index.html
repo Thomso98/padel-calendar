@@ -149,8 +149,12 @@
             <input type="email" id="account-email" disabled />
           </div>
           <div>
-            <label for="account-full-name">Nom complet</label>
-            <input type="text" id="account-full-name" />
+            <label for="account-last-name">Nom</label>
+            <input type="text" id="account-last-name" />
+          </div>
+          <div>
+            <label for="account-first-name">Prénom</label>
+            <input type="text" id="account-first-name" />
           </div>
           <div>
             <label for="account-license">Licence padel (n°)</label>
@@ -161,8 +165,8 @@
             <input type="date" id="account-birth-date" />
           </div>
           <div>
-            <label for="account-ranking">Classement padel</label>
-            <input type="text" id="account-ranking" />
+            <label for="account-ranking">Classement padel **</label>
+            <input type="text" id="account-ranking" disabled />
           </div>
           <div>
             <label for="account-late-withdrawals">Retraits tardifs *</label>
@@ -179,6 +183,11 @@
           moins de 48h avant son début. Vous disposez de 3 retraits tardifs au
           total : une fois ce nombre atteint, votre compte est bloqué jusqu'à
           ce qu'un administrateur le débloque.
+        </p>
+        <p class="msg" style="margin-top:8px;">
+          ** Le classement padel n'est pas modifiable directement : il est
+          calculé automatiquement à partir de votre numéro de licence (recherche
+          sur Ten'Up), et mis à jour périodiquement.
         </p>
       </div>
     </div>
