@@ -250,6 +250,11 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tournament-card.friendly {
   background: #f6ecfb;
   border-color: var(--purple);
+  /* Toujours collée en bas de la case du jour (qui a la même hauteur
+     que les autres jours de la même semaine grâce à la grille CSS),
+     pour que la case "Match amical" soit alignée avec celle de la
+     veille / du lendemain, quel que soit le nombre de tournois. */
+  margin-top: auto;
 }
 
 .tournament-card.friendly button.request-btn {
