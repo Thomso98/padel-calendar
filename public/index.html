@@ -76,6 +76,7 @@
     <div class="auth-tabs" style="margin-bottom:20px;">
       <button id="tab-calendar" class="active" type="button">Calendrier</button>
       <button id="tab-my-tournaments" type="button">Mes tournois</button>
+      <button id="tab-account" type="button">Mon compte</button>
     </div>
 
     <div id="calendar-view">
@@ -107,6 +108,52 @@
       <div class="card">
         <h2>Tournois joués</h2>
         <div id="my-tournaments-played"></div>
+      </div>
+    </div>
+
+    <div id="account-view" class="hidden">
+      <div class="card">
+        <h2>Mon compte</h2>
+
+        <div class="account-avatar-row">
+          <img id="account-avatar-preview" class="account-avatar" src="" alt="Photo de profil" />
+          <div>
+            <label for="account-avatar-input">Photo de profil</label>
+            <input type="file" id="account-avatar-input" accept="image/*" />
+            <div id="account-avatar-msg" class="msg"></div>
+          </div>
+        </div>
+
+        <form id="form-account" class="stack" style="margin-top:20px;">
+          <div>
+            <label for="account-email">Email</label>
+            <input type="email" id="account-email" disabled />
+          </div>
+          <div>
+            <label for="account-full-name">Nom complet</label>
+            <input type="text" id="account-full-name" />
+          </div>
+          <div>
+            <label for="account-license">Licence padel (n°)</label>
+            <input type="text" id="account-license" />
+          </div>
+          <div>
+            <label for="account-birth-date">Date de naissance</label>
+            <input type="date" id="account-birth-date" />
+          </div>
+          <div>
+            <label for="account-ranking">Classement padel</label>
+            <input type="text" id="account-ranking" />
+          </div>
+          <div>
+            <label for="account-late-withdrawals">Retraits tardifs</label>
+            <input type="text" id="account-late-withdrawals" disabled />
+          </div>
+          <div id="account-msg" class="msg"></div>
+          <div>
+            <button type="submit" class="primary">Enregistrer</button>
+          </div>
+        </form>
       </div>
     </div>
   </section>
@@ -165,5 +212,6 @@
 <script src="js/dateUtils.js"></script>
 <script src="js/auth.js"></script>
 <script src="js/calendar.js"></script>
+<script src="js/account.js"></script>
 </body>
 </html>
