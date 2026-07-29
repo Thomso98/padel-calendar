@@ -81,6 +81,25 @@
 
     <div id="calendar-view">
       <div class="card">
+        <div class="filters-row">
+          <div>
+            <label for="filter-location">Lieu</label>
+            <select id="filter-location">
+              <option value="">Tous les lieux</option>
+            </select>
+          </div>
+          <div>
+            <label for="filter-time">Créneau</label>
+            <select id="filter-time">
+              <option value="">Tous les créneaux</option>
+              <option value="day">Journée</option>
+              <option value="evening">Soirée</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
         <div class="cal-header">
           <button id="prev-month" class="secondary">← Précédent</button>
           <h2 id="cal-title"></h2>
