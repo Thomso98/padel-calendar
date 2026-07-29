@@ -21,7 +21,13 @@ async function onAuthenticated(user) {
   isAdmin = true;
   document.getElementById("not-admin").classList.add("hidden");
   document.getElementById("app-section").classList.remove("hidden");
-  await Promise.all([loadDays(), loadTournaments(), loadPendingRequests(), loadPendingAccounts()]);
+  await Promise.all([
+    loadDays(),
+    loadTournaments(),
+    loadValidatedTournaments(),
+    loadPendingRequests(),
+    loadPendingAccounts(),
+  ]);
 }
 
 // --- Validation des nouveaux comptes ---
@@ -214,10 +220,14 @@ async function handleTournamentFormSubmit(e) {
 }
 
 async function loadTournaments() {
+  // Uniquement les tournois "actifs" (proposés aux joueurs). Dès qu'un
+  // tournoi est validé, il passe en statut "confirmed" et bascule dans
+  // le tableau "Tournois validés" (loadValidatedTournaments) : les deux
+  // tableaux sont donc mutuellement exclusifs.
   const { data, error } = await supabaseClient
     .from("day_tournaments")
     .select("*")
-    .neq("status", "removed")
+    .eq("status", "active")
     .order("date", { ascending: true });
 
   if (error) {
@@ -229,7 +239,7 @@ async function loadTournaments() {
   tbody.innerHTML = "";
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6">Aucun tournoi pour le moment.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="5">Aucun tournoi disponible pour le moment.</td></tr>';
     return;
   }
 
@@ -252,13 +262,6 @@ async function loadTournaments() {
     tdEvening.textContent = t.type === "friendly" ? "Match amical" : t.is_evening ? "Soirée" : "Journée";
     tr.appendChild(tdEvening);
 
-    const tdStatus = document.createElement("td");
-    const badge = document.createElement("span");
-    badge.className = "badge " + (t.status === "confirmed" ? "confirmed" : "available");
-    badge.textContent = t.status === "confirmed" ? "Validé" : "Actif";
-    tdStatus.appendChild(badge);
-    tr.appendChild(tdStatus);
-
     const tdActions = document.createElement("td");
     const delBtn = document.createElement("button");
     delBtn.className = "danger";
@@ -273,6 +276,118 @@ async function loadTournaments() {
 
     tbody.appendChild(tr);
   });
+}
+
+// --- Gestion des tournois validés (une demande a été approuvée) ---
+async function loadValidatedTournaments() {
+  const { data, error } = await supabaseClient
+    .from("day_tournaments")
+    .select("*")
+    .eq("status", "confirmed")
+    .order("date", { ascending: true });
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const tbody = document.getElementById("validated-tournaments-table-body");
+  tbody.innerHTML = "";
+
+  if (!data || data.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="5">Aucun tournoi validé pour le moment.</td></tr>';
+    return;
+  }
+
+  data.forEach((t) => {
+    const tr = document.createElement("tr");
+
+    const tdDate = document.createElement("td");
+    tdDate.textContent = t.date;
+    tr.appendChild(tdDate);
+
+    const tdTitle = document.createElement("td");
+    tdTitle.textContent = t.title;
+    tr.appendChild(tdTitle);
+
+    const tdLoc = document.createElement("td");
+    tdLoc.textContent = t.location || "—";
+    tr.appendChild(tdLoc);
+
+    const tdEvening = document.createElement("td");
+    tdEvening.textContent = t.type === "friendly" ? "Match amical" : t.is_evening ? "Soirée" : "Journée";
+    tr.appendChild(tdEvening);
+
+    const tdActions = document.createElement("td");
+    tdActions.className = "row-actions";
+
+    const cancelBtn = document.createElement("button");
+    cancelBtn.className = "secondary";
+    cancelBtn.textContent = "Annuler";
+    cancelBtn.addEventListener("click", () => openAdminCancelModal(t));
+    tdActions.appendChild(cancelBtn);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "danger";
+    delBtn.textContent = "Supprimer";
+    delBtn.addEventListener("click", async () => {
+      if (!confirm(`Supprimer définitivement "${t.title}" du ${t.date} ? Cette action est irréversible.`)) return;
+      await supabaseClient.from("day_tournaments").delete().eq("id", t.id);
+      await loadValidatedTournaments();
+    });
+    tdActions.appendChild(delBtn);
+
+    tr.appendChild(tdActions);
+    tbody.appendChild(tr);
+  });
+}
+
+// Ouvre la fenêtre de confirmation d'annulation (question 1 : remettre
+// visible ou non ; question 2 : bouton "Confirmer l'annulation").
+function openAdminCancelModal(tournament) {
+  const modal = document.getElementById("admin-cancel-modal");
+  document.getElementById("admin-cancel-modal-text").textContent =
+    `Vous allez annuler la validation de "${tournament.title}" du ${tournament.date}${tournament.location ? " — " + tournament.location : ""}.`;
+  document.getElementById("admin-cancel-visible-yes").checked = true;
+  document.getElementById("admin-cancel-modal-error").textContent = "";
+  modal.dataset.tournamentId = tournament.id;
+  modal.classList.remove("hidden");
+}
+
+function closeAdminCancelModal() {
+  document.getElementById("admin-cancel-modal").classList.add("hidden");
+}
+
+async function confirmAdminCancelTournament() {
+  const modal = document.getElementById("admin-cancel-modal");
+  const tournamentId = modal.dataset.tournamentId;
+  const makeVisible = document.getElementById("admin-cancel-visible-yes").checked;
+  const errEl = document.getElementById("admin-cancel-modal-error");
+  errEl.textContent = "";
+
+  // 1. Le tournoi redevient "actif" (visible dans "Tournois disponibles")
+  //    ou passe en "removed" (masqué du calendrier et des deux tableaux).
+  const { error: tError } = await supabaseClient
+    .from("day_tournaments")
+    .update({ status: makeVisible ? "active" : "removed" })
+    .eq("id", tournamentId);
+
+  if (tError) {
+    errEl.textContent = tError.message;
+    return;
+  }
+
+  // 2. La demande qui avait été validée pour ce tournoi passe dans un
+  //    statut dédié "cancelled_by_admin", pour que le joueur comprenne
+  //    que ce n'est pas un refus mais une annulation après coup.
+  await supabaseClient
+    .from("requests")
+    .update({ status: "cancelled_by_admin" })
+    .eq("tournament_id", tournamentId)
+    .eq("status", "approved");
+
+  closeAdminCancelModal();
+  await Promise.all([loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
 }
 
 // --- Gestion des demandes en attente ---
@@ -400,12 +515,14 @@ async function resolveRequest(request, decision, tournament) {
     }
   }
 
-  await Promise.all([loadDays(), loadTournaments(), loadPendingRequests()]);
+  await Promise.all([loadDays(), loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("day-type").addEventListener("change", toggleTournamentFields);
   document.getElementById("day-form").addEventListener("submit", handleDayFormSubmit);
   document.getElementById("tournament-form").addEventListener("submit", handleTournamentFormSubmit);
+  document.getElementById("admin-cancel-modal-back").addEventListener("click", closeAdminCancelModal);
+  document.getElementById("admin-cancel-modal-confirm").addEventListener("click", confirmAdminCancelTournament);
   toggleTournamentFields();
 });

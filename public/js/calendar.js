@@ -177,7 +177,7 @@ function appendTournamentCard(cell, tournament, past) {
       : "available");
   badge.textContent =
     tournament.status === "confirmed"
-      ? "Validé"
+      ? "Complet — indisponible"
       : isFriendly
       ? "Match amical"
       : tournament.is_evening
@@ -224,6 +224,12 @@ function appendTournamentCard(cell, tournament, past) {
         const s = document.createElement("span");
         s.className = "badge cancelled";
         s.textContent = "Demande annulée";
+        card.appendChild(s);
+        addRequestButton(card, tournament, "Redemander");
+      } else if (myReq && myReq.status === "cancelled_by_admin") {
+        const s = document.createElement("span");
+        s.className = "badge cancelled";
+        s.textContent = "Annulée par l'organisateur";
         card.appendChild(s);
         addRequestButton(card, tournament, "Redemander");
       } else {
