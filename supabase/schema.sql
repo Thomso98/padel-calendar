@@ -118,6 +118,7 @@ create table public.day_tournaments (
   date date not null,
   title text not null,
   location text,
+  description text,
   is_evening boolean not null default false,
   type text not null default 'official' check (type in ('official', 'friendly')),
   status text not null default 'active' check (status in ('active', 'confirmed', 'removed')),
