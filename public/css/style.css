@@ -339,6 +339,28 @@ table.admin-table th, table.admin-table td {
   border: 1px solid var(--border);
 }
 
+/* --- Espace "Mon compte" --- */
+.account-avatar-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.account-avatar {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+
+input:disabled {
+  background: var(--bg);
+  color: #777;
+  cursor: not-allowed;
+}
+
 @media (max-width: 640px) {
   .cal-grid { gap: 4px; }
   .cal-day { min-height: 74px; font-size: 10px; }
