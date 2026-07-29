@@ -435,14 +435,27 @@ async function loadTournaments() {
 
   const tbody = document.getElementById("tournaments-table-body");
   tbody.innerHTML = "";
+  // Un nouveau rendu du tableau invalide les cases cochées précédemment :
+  // on redémarre donc aussi la case "tout sélectionner" à zéro.
+  const selectAll = document.getElementById("tournaments-select-all");
+  if (selectAll) selectAll.checked = false;
 
   if (!data || data.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="5">Aucun tournoi disponible pour le moment.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6">Aucun tournoi disponible pour le moment.</td></tr>';
     return;
   }
 
   data.forEach((t) => {
     const tr = document.createElement("tr");
+
+    const tdCheck = document.createElement("td");
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.className = "tournament-select-checkbox";
+    checkbox.value = t.id;
+    checkbox.style.width = "auto";
+    tdCheck.appendChild(checkbox);
+    tr.appendChild(tdCheck);
 
     const tdDate = document.createElement("td");
     tdDate.textContent = t.date;
@@ -474,6 +487,101 @@ async function loadTournaments() {
 
     tbody.appendChild(tr);
   });
+}
+
+// Valide d'un coup tous les tournois cochés dans "Tournois disponibles",
+// même si aucun joueur n'a fait de demande pour eux : utile pour
+// confirmer rapidement plusieurs tournois qu'on sait déjà se dérouler
+// (ex: après un scan Ten'Up qui en a ajouté plusieurs d'un coup).
+// Applique exactement la même logique que la validation classique d'une
+// demande (resolveRequest) : le tournoi passe "confirmed", ses demandes
+// pending éventuelles sont refusées, et les autres tournois OFFICIELS
+// actifs du même jour/créneau sont retirés (jamais le "Match amical").
+async function bulkValidateTournaments() {
+  const msgEl = document.getElementById("bulk-validate-msg");
+  msgEl.textContent = "";
+  msgEl.className = "msg";
+
+  const checkboxes = Array.from(document.querySelectorAll(".tournament-select-checkbox:checked"));
+  if (checkboxes.length === 0) {
+    msgEl.textContent = "Sélectionnez au moins un tournoi.";
+    msgEl.className = "msg error";
+    return;
+  }
+
+  if (!confirm(`Valider ${checkboxes.length} tournoi(s) sélectionné(s) ? Ils ne seront plus disponibles aux demandes des joueurs.`)) {
+    return;
+  }
+
+  const tournamentIds = checkboxes.map((cb) => cb.value);
+
+  const { data: tournaments, error: fetchError } = await supabaseClient
+    .from("day_tournaments")
+    .select("*")
+    .in("id", tournamentIds);
+
+  if (fetchError) {
+    msgEl.textContent = fetchError.message;
+    msgEl.className = "msg error";
+    return;
+  }
+
+  let validatedCount = 0;
+
+  // Traités un par un, jamais en un seul appel groupé : chaque
+  // validation applique sa propre cascade sur les tournois concurrents
+  // du même jour/créneau, donc chaque étape doit voir l'état laissé par
+  // la précédente (ex: si deux tournois sélectionnés sont malgré tout
+  // sur le même jour/créneau, le second verra le premier déjà "confirmed"
+  // et non plus "active", donc pas retiré à tort).
+  for (const tournament of tournaments || []) {
+    const { data: fresh } = await supabaseClient
+      .from("day_tournaments")
+      .select("status")
+      .eq("id", tournament.id)
+      .single();
+    // Déjà validé ou retiré entre-temps (ex: coché deux fois, ou déjà
+    // validé via une demande pendant ce même traitement) : on l'ignore.
+    if (!fresh || fresh.status !== "active") continue;
+
+    await supabaseClient.from("day_tournaments").update({ status: "confirmed" }).eq("id", tournament.id);
+
+    await supabaseClient
+      .from("requests")
+      .update({ status: "rejected" })
+      .eq("tournament_id", tournament.id)
+      .eq("status", "pending");
+
+    const { data: siblings } = await supabaseClient
+      .from("day_tournaments")
+      .select("id")
+      .eq("date", tournament.date)
+      .eq("is_evening", tournament.is_evening)
+      .eq("status", "active")
+      .eq("type", "official")
+      .neq("id", tournament.id);
+
+    const siblingIds = (siblings || []).map((s) => s.id);
+    if (siblingIds.length > 0) {
+      await supabaseClient
+        .from("requests")
+        .update({ status: "rejected" })
+        .in("tournament_id", siblingIds)
+        .eq("status", "pending");
+
+      await supabaseClient
+        .from("day_tournaments")
+        .update({ status: "removed" })
+        .in("id", siblingIds);
+    }
+
+    validatedCount += 1;
+  }
+
+  msgEl.textContent = `${validatedCount} tournoi(s) validé(s).`;
+  msgEl.className = "msg success";
+
+  await Promise.all([loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
 }
 
 // --- Gestion des tournois validés (une demande a été approuvée) ---
@@ -812,5 +920,11 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("admin-cancel-modal-confirm").addEventListener("click", confirmAdminCancelTournament);
   document.getElementById("block-account-modal-back").addEventListener("click", closeBlockModal);
   document.getElementById("block-account-modal-confirm").addEventListener("click", confirmBlockAccount);
+  document.getElementById("tournaments-select-all").addEventListener("change", (e) => {
+    document.querySelectorAll(".tournament-select-checkbox").forEach((cb) => {
+      cb.checked = e.target.checked;
+    });
+  });
+  document.getElementById("bulk-validate-btn").addEventListener("click", bulkValidateTournaments);
   toggleTournamentFields();
 });
