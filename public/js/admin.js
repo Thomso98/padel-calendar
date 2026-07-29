@@ -377,14 +377,14 @@ async function confirmAdminCancelTournament() {
     return;
   }
 
-  // 2. La demande qui avait été validée pour ce tournoi passe dans un
-  //    statut dédié "cancelled_by_admin", pour que le joueur comprenne
-  //    que ce n'est pas un refus mais une annulation après coup.
+  // 2. On efface toutes les demandes liées à ce tournoi (validée comme
+  //    refusées/en attente éventuelles) : le tournoi doit retrouver sa
+  //    forme initiale, comme s'il n'avait jamais été demandé. Aucun badge
+  //    ni message d'annulation ne doit rester visible pour les joueurs.
   await supabaseClient
     .from("requests")
-    .update({ status: "cancelled_by_admin" })
-    .eq("tournament_id", tournamentId)
-    .eq("status", "approved");
+    .delete()
+    .eq("tournament_id", tournamentId);
 
   closeAdminCancelModal();
   await Promise.all([loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
