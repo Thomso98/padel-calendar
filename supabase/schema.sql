@@ -148,6 +148,13 @@ create table public.day_tournaments (
   is_evening boolean not null default false,
   type text not null default 'official' check (type in ('official', 'friendly')),
   status text not null default 'active' check (status in ('active', 'confirmed', 'removed')),
+  -- true dès qu'une demande "pending" existe sur ce tournoi, tenu à jour
+  -- par le trigger sync_tournament_pending_flag ci-dessous. Permet à
+  -- tout utilisateur approuvé de voir qu'un tournoi est "bloqué" par la
+  -- demande d'un autre joueur, sans avoir accès en lecture aux demandes
+  -- des autres (RLS requests_select restreint chacun à ses propres
+  -- demandes).
+  has_pending_request boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (date, title, location)
@@ -210,6 +217,34 @@ create table public.requests (
   updated_at timestamptz not null default now(),
   unique (user_id, tournament_id)
 );
+
+-- Tient à jour day_tournaments.has_pending_request à chaque changement
+-- dans "requests" (voir commentaire sur la colonne ci-dessus).
+create function public.sync_tournament_pending_flag()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_tournament_id uuid;
+begin
+  v_tournament_id := coalesce(new.tournament_id, old.tournament_id);
+
+  update public.day_tournaments
+    set has_pending_request = exists (
+      select 1 from public.requests
+      where tournament_id = v_tournament_id and status = 'pending'
+    )
+    where id = v_tournament_id;
+
+  return null;
+end;
+$$;
+
+create trigger trg_sync_tournament_pending_flag
+after insert or update or delete on public.requests
+for each row execute procedure public.sync_tournament_pending_flag();
 
 -- ============================================================
 -- Row Level Security
