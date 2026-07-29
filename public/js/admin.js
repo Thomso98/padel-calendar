@@ -497,7 +497,7 @@ async function loadTournaments() {
 // demande (resolveRequest) : le tournoi passe "confirmed", ses demandes
 // pending éventuelles sont refusées, et les autres tournois OFFICIELS
 // actifs du même jour/créneau sont retirés (jamais le "Match amical").
-async function bulkValidateTournaments() {
+function openBulkValidateModal() {
   const msgEl = document.getElementById("bulk-validate-msg");
   msgEl.textContent = "";
   msgEl.className = "msg";
@@ -509,7 +509,31 @@ async function bulkValidateTournaments() {
     return;
   }
 
-  if (!confirm(`Valider ${checkboxes.length} tournoi(s) sélectionné(s) ? Ils ne seront plus disponibles aux demandes des joueurs.`)) {
+  // Modale maison plutôt que window.confirm() : plus cohérent avec le
+  // reste de l'admin (mêmes modales que l'annulation de tournoi / le
+  // blocage de compte), et plus fiable (un confirm() natif bloque le
+  // fil d'exécution de la page entière).
+  document.getElementById("bulk-validate-modal-text").textContent =
+    `Valider ${checkboxes.length} tournoi(s) sélectionné(s) ? Ils ne seront plus disponibles aux demandes des joueurs.`;
+  document.getElementById("bulk-validate-modal-error").textContent = "";
+  document.getElementById("bulk-validate-modal").classList.remove("hidden");
+}
+
+function closeBulkValidateModal() {
+  document.getElementById("bulk-validate-modal").classList.add("hidden");
+}
+
+async function confirmBulkValidateTournaments() {
+  const modalErrEl = document.getElementById("bulk-validate-modal-error");
+  modalErrEl.textContent = "";
+
+  const msgEl = document.getElementById("bulk-validate-msg");
+  msgEl.textContent = "";
+  msgEl.className = "msg";
+
+  const checkboxes = Array.from(document.querySelectorAll(".tournament-select-checkbox:checked"));
+  if (checkboxes.length === 0) {
+    closeBulkValidateModal();
     return;
   }
 
@@ -521,8 +545,7 @@ async function bulkValidateTournaments() {
     .in("id", tournamentIds);
 
   if (fetchError) {
-    msgEl.textContent = fetchError.message;
-    msgEl.className = "msg error";
+    modalErrEl.textContent = fetchError.message;
     return;
   }
 
@@ -580,6 +603,7 @@ async function bulkValidateTournaments() {
 
   msgEl.textContent = `${validatedCount} tournoi(s) validé(s).`;
   msgEl.className = "msg success";
+  closeBulkValidateModal();
 
   await Promise.all([loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
 }
@@ -925,6 +949,8 @@ document.addEventListener("DOMContentLoaded", () => {
       cb.checked = e.target.checked;
     });
   });
-  document.getElementById("bulk-validate-btn").addEventListener("click", bulkValidateTournaments);
+  document.getElementById("bulk-validate-btn").addEventListener("click", openBulkValidateModal);
+  document.getElementById("bulk-validate-modal-back").addEventListener("click", closeBulkValidateModal);
+  document.getElementById("bulk-validate-modal-confirm").addEventListener("click", confirmBulkValidateTournaments);
   toggleTournamentFields();
 });
