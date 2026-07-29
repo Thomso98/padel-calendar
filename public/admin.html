@@ -106,8 +106,19 @@
     </div>
 
     <div class="card">
+      <h2>Tournois validés</h2>
+      <p class="msg">Tournois pour lesquels vous avez validé une demande. Ils n'apparaissent plus dans "Tournois disponibles" ni sur le calendrier comme disponibles. Vous pouvez annuler la validation (le tournoi redevient disponible ou disparaît, selon votre choix) ou le supprimer définitivement.</p>
+      <table class="admin-table">
+        <thead>
+          <tr><th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th></th></tr>
+        </thead>
+        <tbody id="validated-tournaments-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Tournois disponibles</h2>
-      <p class="msg">Une case = un tournoi proposé aux joueurs ce jour-là. Plusieurs tournois peuvent exister le même jour (lieux différents).</p>
+      <p class="msg">Une case = un tournoi proposé aux joueurs ce jour-là. Plusieurs tournois peuvent exister le même jour (lieux différents). Dès qu'une demande est validée pour un tournoi, il bascule automatiquement dans "Tournois validés" ci-dessus et disparaît d'ici.</p>
       <form id="tournament-form" class="stack" style="margin-bottom:20px;">
         <div>
           <label for="tournament-date">Date</label>
@@ -134,7 +145,7 @@
       </form>
       <table class="admin-table">
         <thead>
-          <tr><th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th>Statut</th><th></th></tr>
+          <tr><th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th></th></tr>
         </thead>
         <tbody id="tournaments-table-body"></tbody>
       </table>
@@ -158,6 +169,29 @@
   </section>
 
 </main>
+
+<!-- Modal d'annulation d'un tournoi déjà validé -->
+<div id="admin-cancel-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Annuler ce tournoi validé ?</h3>
+    <p id="admin-cancel-modal-text"></p>
+    <div class="stack" style="margin:16px 0;">
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="radio" name="admin-cancel-visibility" id="admin-cancel-visible-yes" value="yes" checked style="width:auto;" />
+        Remettre ce tournoi visible dans "Tournois disponibles"
+      </label>
+      <label style="display:flex; align-items:center; gap:8px; font-weight:400;">
+        <input type="radio" name="admin-cancel-visibility" id="admin-cancel-visible-no" value="no" style="width:auto;" />
+        Ne pas le remettre visible (masqué du calendrier)
+      </label>
+    </div>
+    <div id="admin-cancel-modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="admin-cancel-modal-back" class="secondary" type="button">Retour</button>
+      <button id="admin-cancel-modal-confirm" class="danger" type="button">Confirmer l'annulation</button>
+    </div>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabaseClient.js"></script>
