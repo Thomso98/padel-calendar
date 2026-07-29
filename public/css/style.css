@@ -9,6 +9,7 @@
   --text: #1f2328;
   --border: #e2e5e9;
   --red: #c0392b;
+  --orange: #d9720b;
 }
 
 * { box-sizing: border-box; }
@@ -211,6 +212,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .badge.approved { background: var(--green); color: #fff; }
 .badge.rejected { background: var(--red); color: #fff; }
 .badge.cancelled { background: #dcdfe3; color: #555; }
+.badge.locked { background: var(--orange); color: #fff; }
 
 /* --- Cases de tournoi (une par tournoi, plusieurs possibles par jour) --- */
 .tournament-card {
@@ -246,6 +248,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .tournament-card.confirmed .tournament-loc {
   color: #82868c;
+}
+
+/* Tournoi "bloqué" : une demande d'un autre joueur est en attente de
+   validation. Bordure/fond orange bien visible, quelle que soit la
+   couleur d'origine de la case, pour qu'on comprenne qu'il ne faut pas
+   demander ce créneau tant que l'admin n'a pas tranché. */
+.tournament-card.locked {
+  background: #fdf1e3 !important;
+  border: 1px solid var(--orange) !important;
 }
 
 .tournament-card button.request-btn {
