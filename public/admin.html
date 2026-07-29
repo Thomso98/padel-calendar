@@ -227,6 +227,19 @@
   </div>
 </div>
 
+<!-- Modal de confirmation de validation groupée de tournois -->
+<div id="bulk-validate-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Valider ces tournois ?</h3>
+    <p id="bulk-validate-modal-text"></p>
+    <div id="bulk-validate-modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="bulk-validate-modal-back" class="secondary" type="button">Retour</button>
+      <button id="bulk-validate-modal-confirm" class="primary" type="button">Confirmer la validation</button>
+    </div>
+  </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="js/supabaseClient.js"></script>
 <script src="js/dateUtils.js"></script>
