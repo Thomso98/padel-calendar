@@ -91,7 +91,10 @@ before update on public.profiles
 for each row execute procedure public.prevent_privileged_self_update();
 
 -- -----------------------------------------------------------
--- Table des jours du calendrier
+-- Table des jours du calendrier (repos / tournoi confirmé — décidé
+-- par l'admin uniquement). Une date sans ligne ici est "ouverte" :
+-- les tournois disponibles (table day_tournaments ci-dessous)
+-- s'affichent normalement.
 -- -----------------------------------------------------------
 create table public.days (
   id uuid primary key default gen_random_uuid(),
@@ -105,16 +108,39 @@ create table public.days (
 );
 
 -- -----------------------------------------------------------
--- Table des demandes des utilisateurs
+-- Table des tournois disponibles à une date donnée. Plusieurs
+-- tournois peuvent exister pour la même date (clubs différents,
+-- créneaux journée et soirée, etc). Remplie automatiquement par la
+-- recherche Ten'Up, ou à la main depuis le tableau de bord admin.
+-- -----------------------------------------------------------
+create table public.day_tournaments (
+  id uuid primary key default gen_random_uuid(),
+  date date not null,
+  title text not null,
+  location text,
+  is_evening boolean not null default false,
+  status text not null default 'active' check (status in ('active', 'confirmed', 'removed')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (date, title, location)
+);
+
+create index day_tournaments_date_idx on public.day_tournaments(date);
+
+-- -----------------------------------------------------------
+-- Table des demandes des utilisateurs. Un joueur peut faire
+-- plusieurs demandes pour la même date (tournois différents), mais
+-- une seule demande par tournoi.
 -- -----------------------------------------------------------
 create table public.requests (
   id uuid primary key default gen_random_uuid(),
-  day_id uuid not null references public.days(id) on delete cascade,
+  tournament_id uuid not null references public.day_tournaments(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   message text,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  unique (user_id, tournament_id)
 );
 
 -- ============================================================
@@ -122,6 +148,7 @@ create table public.requests (
 -- ============================================================
 alter table public.profiles enable row level security;
 alter table public.days enable row level security;
+alter table public.day_tournaments enable row level security;
 alter table public.requests enable row level security;
 
 -- profiles : chacun voit son propre profil, l'admin voit tout
@@ -159,6 +186,24 @@ create policy "days_update_admin" on public.days
   with check (public.is_admin());
 
 create policy "days_delete_admin" on public.days
+  for delete to authenticated
+  using (public.is_admin());
+
+-- day_tournaments : même logique que days
+create policy "day_tournaments_select" on public.day_tournaments
+  for select to authenticated
+  using (public.is_approved() or public.is_admin());
+
+create policy "day_tournaments_insert_admin" on public.day_tournaments
+  for insert to authenticated
+  with check (public.is_admin());
+
+create policy "day_tournaments_update_admin" on public.day_tournaments
+  for update to authenticated
+  using (public.is_admin())
+  with check (public.is_admin());
+
+create policy "day_tournaments_delete_admin" on public.day_tournaments
   for delete to authenticated
   using (public.is_admin());
 
