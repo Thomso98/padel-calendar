@@ -16,10 +16,57 @@ let daysByDate = {};                // { 'YYYY-MM-DD': dayRow } (repos / confirm
 let tournamentsByDate = {};         // { 'YYYY-MM-DD': [tournamentRow, ...] }
 let myRequestsByTournamentId = {};  // { tournament_id: requestRow } (dernière demande de l'utilisateur pour ce tournoi)
 
+// --- Filtres de recherche (chantier 5) : lieu et créneau. Uniquement
+// appliqués à l'affichage des tournois dans la grille du mois, jamais
+// aux jours "repos" / "confirmé" (pas de liste de tournois à filtrer
+// dans ce cas, voir renderCalendar).
+let filterLocation = "";   // "" = tous les lieux, sinon une valeur exacte de day_tournaments.location
+let filterTimeSlot = "";   // "" = tous les créneaux, "day" = journée, "evening" = soirée
+
 async function onAuthenticated(user, profile) {
   currentUser = user;
   currentProfile = profile || null;
-  await loadMonth();
+  await Promise.all([loadMonth(), loadLocationOptions()]);
+}
+
+function tournamentMatchesFilters(t) {
+  if (filterLocation && (t.location || "") !== filterLocation) return false;
+  if (filterTimeSlot === "day" && t.is_evening) return false;
+  if (filterTimeSlot === "evening" && !t.is_evening) return false;
+  return true;
+}
+
+// Alimente le menu déroulant "Lieu" avec les valeurs distinctes déjà
+// utilisées dans day_tournaments (tous les tournois, pas seulement ceux
+// du mois affiché), pour que le filtre reste utilisable même en
+// changeant de mois.
+async function loadLocationOptions() {
+  const { data, error } = await supabaseClient
+    .from("day_tournaments")
+    .select("location")
+    .not("location", "is", null)
+    .neq("location", "");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const unique = [...new Set((data || []).map((r) => r.location).filter(Boolean))].sort((a, b) =>
+    a.localeCompare(b, "fr")
+  );
+
+  const select = document.getElementById("filter-location");
+  if (!select) return;
+  const previousValue = select.value;
+  select.innerHTML = '<option value="">Tous les lieux</option>';
+  unique.forEach((loc) => {
+    const opt = document.createElement("option");
+    opt.value = loc;
+    opt.textContent = loc;
+    select.appendChild(opt);
+  });
+  if (unique.includes(previousValue)) select.value = previousValue;
 }
 
 // --- Onglets "Calendrier" / "Mes tournois" ---
@@ -147,11 +194,15 @@ function renderCalendar() {
       }
     } else {
       const list = tournamentsByDate[iso] || [];
-      const officialList = list.filter((t) => t.type !== "friendly");
+      // Filtres de recherche (lieu / créneau) : ne s'appliquent qu'à
+      // l'affichage des tournois ici, jamais aux jours "repos" /
+      // "confirmé" ci-dessus (branches séparées, non concernées).
+      const officialList = list.filter((t) => t.type !== "friendly" && tournamentMatchesFilters(t));
       officialList.forEach((t) => appendTournamentCard(cell, t, past));
 
       // Case "Match amical" : toujours affichée en dernier, tous les
-      // jours (hors repos / tournoi confirmé). Si aucune ligne n'existe
+      // jours (hors repos / tournoi confirmé), sauf si elle ne
+      // correspond pas aux filtres actifs. Si aucune ligne n'existe
       // encore en base pour cette date, on affiche une case "virtuelle"
       // (id vide) : la ligne réelle n'est créée qu'au moment où un
       // joueur clique sur "Demander à jouer" (fonction ensure_friendly_slot).
@@ -164,7 +215,9 @@ function renderCalendar() {
         status: "active",
         type: "friendly",
       };
-      appendTournamentCard(cell, friendly, past);
+      if (tournamentMatchesFilters(friendly)) {
+        appendTournamentCard(cell, friendly, past);
+      }
     }
 
     grid.appendChild(cell);
@@ -619,6 +672,14 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("tab-calendar").addEventListener("click", () => switchAppTab("calendar"));
   document.getElementById("tab-my-tournaments").addEventListener("click", () => switchAppTab("my-tournaments"));
   document.getElementById("tab-account").addEventListener("click", () => switchAppTab("account"));
+  document.getElementById("filter-location").addEventListener("change", (e) => {
+    filterLocation = e.target.value;
+    renderCalendar();
+  });
+  document.getElementById("filter-time").addEventListener("change", (e) => {
+    filterTimeSlot = e.target.value;
+    renderCalendar();
+  });
   document.getElementById("withdraw-modal-back").addEventListener("click", closeWithdrawModal);
   document.getElementById("withdraw-modal-confirm").addEventListener("click", confirmWithdraw);
 });
