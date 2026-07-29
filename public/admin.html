@@ -154,12 +154,20 @@
         <button type="submit" class="primary">Ajouter ce tournoi</button>
         <div id="tournament-form-msg" class="msg"></div>
       </form>
+      <p class="msg">Cochez un ou plusieurs tournois puis validez-les d'un coup, même sans qu'un joueur n'ait fait de demande. Attention : ne sélectionnez pas deux tournois du même jour et du même créneau (journée/soirée), un seul tournoi officiel peut être confirmé par créneau.</p>
       <table class="admin-table">
         <thead>
-          <tr><th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th></th></tr>
+          <tr>
+            <th><input type="checkbox" id="tournaments-select-all" style="width:auto;" /></th>
+            <th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th></th>
+          </tr>
         </thead>
         <tbody id="tournaments-table-body"></tbody>
       </table>
+      <div class="row-actions" style="margin-top:12px; align-items:center;">
+        <button id="bulk-validate-btn" class="primary" type="button">Valider les tournois sélectionnés</button>
+        <span id="bulk-validate-msg" class="msg"></span>
+      </div>
     </div>
 
     <div class="card">
