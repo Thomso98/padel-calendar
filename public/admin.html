@@ -76,6 +76,17 @@
     </div>
 
     <div class="card">
+      <h2>Gestion des comptes</h2>
+      <p class="msg">Bloquer un compte l'empêche de se connecter et d'accéder au calendrier, jusqu'à ce que vous le débloquiez. Le compteur de retraits tardifs se remet à zéro uniquement si vous le faites vous-même ici.</p>
+      <table class="admin-table">
+        <thead>
+          <tr><th>Nom</th><th>Email</th><th>Statut</th><th>Retraits tardifs</th><th></th></tr>
+        </thead>
+        <tbody id="accounts-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Ajouter / modifier un jour (repos ou tournoi confirmé)</h2>
       <p class="msg">Les tournois "disponibles" proposés aux joueurs sont gérés plus bas (remplis automatiquement chaque jour, ou ajoutés à la main).</p>
       <form id="day-form" class="stack">
@@ -189,6 +200,21 @@
     <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
       <button id="admin-cancel-modal-back" class="secondary" type="button">Retour</button>
       <button id="admin-cancel-modal-confirm" class="danger" type="button">Confirmer l'annulation</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de blocage d'un compte -->
+<div id="block-account-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3>Bloquer ce compte ?</h3>
+    <p id="block-account-modal-text"></p>
+    <label for="block-account-comment">Commentaire (facultatif)</label>
+    <textarea id="block-account-comment" placeholder="Raison du blocage (visible par vous uniquement)..."></textarea>
+    <div id="block-account-modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="block-account-modal-back" class="secondary" type="button">Retour</button>
+      <button id="block-account-modal-confirm" class="danger" type="button">Bloquer ce compte</button>
     </div>
   </div>
 </div>
