@@ -3,6 +3,7 @@
   --green-dark: #145c39;
   --grey: #9aa0a6;
   --blue: #1d5fbf;
+  --purple: #8e44ad;
   --bg: #f6f7f9;
   --card: #ffffff;
   --text: #1f2328;
@@ -205,6 +206,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .badge.confirmed { background: var(--blue); color: #fff; }
 .badge.available { background: var(--green); color: #fff; }
 .badge.evening { background: var(--blue); color: #fff; }
+.badge.friendly { background: var(--purple); color: #fff; }
 .badge.pending { background: #f1c40f; color: #543a00; }
 .badge.approved { background: var(--green); color: #fff; }
 .badge.rejected { background: var(--red); color: #fff; }
@@ -243,6 +245,15 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .tournament-card.evening button.request-btn {
   background: var(--blue);
+}
+
+.tournament-card.friendly {
+  background: #f6ecfb;
+  border-color: var(--purple);
+}
+
+.tournament-card.friendly button.request-btn {
+  background: var(--purple);
 }
 
 .tournament-name { font-weight: 600; line-height: 1.2; }
