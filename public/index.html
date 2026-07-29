@@ -165,7 +165,7 @@
             <input type="text" id="account-ranking" />
           </div>
           <div>
-            <label for="account-late-withdrawals">Retraits tardifs</label>
+            <label for="account-late-withdrawals">Retraits tardifs *</label>
             <input type="text" id="account-late-withdrawals" disabled />
           </div>
           <div id="account-msg" class="msg"></div>
@@ -173,6 +173,13 @@
             <button type="submit" class="primary">Enregistrer</button>
           </div>
         </form>
+
+        <p class="msg" style="margin-top:20px;">
+          * Un retrait tardif correspond à l'annulation d'un tournoi déjà validé
+          moins de 48h avant son début. Vous disposez de 3 retraits tardifs au
+          total : une fois ce nombre atteint, votre compte est bloqué jusqu'à
+          ce qu'un administrateur le débloque.
+        </p>
       </div>
     </div>
   </section>
