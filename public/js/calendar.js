@@ -9,15 +9,26 @@ const MOIS_FR = [
 const JOURS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 let currentUser = null;
+let currentProfile = null;
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth(); // 0-11
 let daysByDate = {};                // { 'YYYY-MM-DD': dayRow } (repos / confirmé, décidé par l'admin)
 let tournamentsByDate = {};         // { 'YYYY-MM-DD': [tournamentRow, ...] }
 let myRequestsByTournamentId = {};  // { tournament_id: requestRow } (dernière demande de l'utilisateur pour ce tournoi)
 
-async function onAuthenticated(user) {
+async function onAuthenticated(user, profile) {
   currentUser = user;
+  currentProfile = profile || null;
   await loadMonth();
+}
+
+// --- Onglets "Calendrier" / "Mes tournois" ---
+function switchAppTab(tab) {
+  document.getElementById("tab-calendar").classList.toggle("active", tab === "calendar");
+  document.getElementById("tab-my-tournaments").classList.toggle("active", tab === "my-tournaments");
+  document.getElementById("calendar-view").classList.toggle("hidden", tab !== "calendar");
+  document.getElementById("my-tournaments-view").classList.toggle("hidden", tab !== "my-tournaments");
+  if (tab === "my-tournaments") loadMyTournaments();
 }
 
 function monthRangeISO(year, monthIndex) {
@@ -441,6 +452,152 @@ async function confirmCancelRequest() {
   await loadMonth();
 }
 
+// --- Onglet "Mes tournois" ---
+async function loadMyTournaments() {
+  if (!currentUser) return;
+
+  const { data, error } = await supabaseClient
+    .from("requests")
+    .select("*, tournament:day_tournaments(*)")
+    .eq("user_id", currentUser.id)
+    .eq("status", "approved");
+
+  if (error) {
+    console.error(error);
+    return;
+  }
+
+  const today = toISODate(new Date());
+  const upcoming = [];
+  const played = [];
+
+  (data || []).forEach((r) => {
+    if (!r.tournament) return; // tournoi supprimé entre-temps
+    if (r.tournament.date >= today) upcoming.push(r);
+    else played.push(r);
+  });
+
+  upcoming.sort((a, b) => a.tournament.date.localeCompare(b.tournament.date));
+  played.sort((a, b) => b.tournament.date.localeCompare(a.tournament.date));
+
+  renderMyTournamentsList("my-tournaments-upcoming", upcoming, true);
+  renderMyTournamentsList("my-tournaments-played", played, false);
+}
+
+function renderMyTournamentsList(containerId, requests, showCancelButton) {
+  const container = document.getElementById(containerId);
+  container.innerHTML = "";
+
+  if (requests.length === 0) {
+    container.innerHTML = "<p class=\"msg\">Aucun tournoi pour le moment.</p>";
+    return;
+  }
+
+  requests.forEach((r) => {
+    const t = r.tournament;
+    const row = document.createElement("div");
+    row.className = "card";
+    row.style.marginBottom = "10px";
+
+    const title = document.createElement("div");
+    title.innerHTML = `<strong>${t.title}</strong>
+      <span class="pill">${t.date}${t.location ? " — " + t.location : ""}${t.is_evening ? " (soirée)" : ""}</span>`;
+    row.appendChild(title);
+
+    if (showCancelButton) {
+      const actions = document.createElement("div");
+      actions.className = "row-actions";
+      actions.style.marginTop = "10px";
+
+      const btn = document.createElement("button");
+      btn.className = "danger";
+      btn.textContent = "Annuler ce tournoi";
+      btn.addEventListener("click", () => openWithdrawModal(r, t));
+
+      actions.appendChild(btn);
+      row.appendChild(actions);
+    }
+
+    container.appendChild(row);
+  });
+}
+
+// --- Modal d'annulation d'un tournoi validé (avec logique de retrait
+// tardif). Le calcul de "retard" affiché ici est indicatif pour choisir
+// le bon texte d'avertissement ; la fonction SQL withdraw_from_tournament
+// revérifie tout côté serveur avant d'appliquer quoi que ce soit.
+function openWithdrawModal(request, tournament) {
+  const modal = document.getElementById("withdraw-modal");
+  const tournamentStart = new Date(tournament.date + "T00:00:00");
+  const hoursUntil = (tournamentStart - new Date()) / 3600000;
+  const isLate = hoursUntil < 48;
+  const currentCount = (currentProfile && currentProfile.late_withdrawals_count) || 0;
+  const wouldBeCount = currentCount + 1;
+
+  const commentWrap = document.getElementById("withdraw-modal-comment-wrap");
+  document.getElementById("withdraw-modal-comment").value = "";
+  document.getElementById("withdraw-modal-error").textContent = "";
+
+  if (!isLate) {
+    document.getElementById("withdraw-modal-title").textContent = "Annuler ce tournoi ?";
+    document.getElementById("withdraw-modal-text").textContent =
+      `Vous avez encore plus de 48h avant le début de "${tournament.title}" (${tournament.date}) : cette annulation n'aura aucune conséquence.`;
+    commentWrap.classList.add("hidden");
+    document.getElementById("withdraw-modal-confirm").textContent = "Confirmer l'annulation";
+  } else if (wouldBeCount < 3) {
+    document.getElementById("withdraw-modal-title").textContent = "Attention : retrait tardif";
+    document.getElementById("withdraw-modal-text").textContent =
+      `Il reste moins de 48h avant le début de "${tournament.title}" (${tournament.date}). Annuler maintenant compte comme un retrait tardif (${wouldBeCount}/3). Vous pouvez indiquer une raison ci-dessous.`;
+    commentWrap.classList.remove("hidden");
+    document.getElementById("withdraw-modal-confirm").textContent = "Confirmer le retrait tardif";
+  } else {
+    document.getElementById("withdraw-modal-title").textContent = "Attention : ce retrait bloquera votre compte";
+    document.getElementById("withdraw-modal-text").textContent =
+      `Il reste moins de 48h avant le début de "${tournament.title}" (${tournament.date}). Ce sera votre 3e retrait tardif : si vous confirmez, votre compte sera bloqué pour une durée indéterminée, jusqu'à ce qu'un administrateur le débloque. Vous pouvez indiquer une raison ci-dessous.`;
+    commentWrap.classList.remove("hidden");
+    document.getElementById("withdraw-modal-confirm").textContent = "Confirmer et bloquer mon compte";
+  }
+
+  modal.dataset.requestId = request.id;
+  modal.classList.remove("hidden");
+}
+
+function closeWithdrawModal() {
+  document.getElementById("withdraw-modal").classList.add("hidden");
+}
+
+async function confirmWithdraw() {
+  const modal = document.getElementById("withdraw-modal");
+  const requestId = modal.dataset.requestId;
+  const comment = document.getElementById("withdraw-modal-comment").value.trim() || null;
+  const errEl = document.getElementById("withdraw-modal-error");
+  errEl.textContent = "";
+
+  const { data, error } = await supabaseClient.rpc("withdraw_from_tournament", {
+    p_request_id: requestId,
+    p_comment: comment,
+  });
+
+  if (error) {
+    errEl.textContent = error.message;
+    return;
+  }
+
+  const result = Array.isArray(data) ? data[0] : data;
+
+  closeWithdrawModal();
+
+  if (result && result.will_block) {
+    // 3e retrait tardif : le compte vient d'être bloqué côté serveur.
+    // Déconnexion immédiate, comme demandé.
+    await supabaseClient.auth.signOut();
+    return;
+  }
+
+  showGlobalMessage("Tournoi annulé.");
+  await loadMyTournaments();
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("prev-month").addEventListener("click", () => {
     viewMonth -= 1;
@@ -456,4 +613,8 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("modal-submit").addEventListener("click", submitRequest);
   document.getElementById("cancel-modal-no").addEventListener("click", closeCancelModal);
   document.getElementById("cancel-modal-yes").addEventListener("click", confirmCancelRequest);
+  document.getElementById("tab-calendar").addEventListener("click", () => switchAppTab("calendar"));
+  document.getElementById("tab-my-tournaments").addEventListener("click", () => switchAppTab("my-tournaments"));
+  document.getElementById("withdraw-modal-back").addEventListener("click", closeWithdrawModal);
+  document.getElementById("withdraw-modal-confirm").addEventListener("click", confirmWithdraw);
 });

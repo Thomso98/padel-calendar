@@ -1,5 +1,6 @@
 // Gère les formulaires de connexion / inscription et l'affichage
-// conditionnel : formulaire d'auth / en attente de validation / calendrier.
+// conditionnel : formulaire d'auth / en attente de validation /
+// compte bloqué / calendrier.
 
 function showAuthMessage(text, type) {
   const el = document.getElementById("auth-msg");
@@ -62,6 +63,7 @@ async function refreshAuthUI() {
   const authSection = document.getElementById("auth-section");
   const appSection = document.getElementById("app-section");
   const pendingSection = document.getElementById("pending-section");
+  const blockedSection = document.getElementById("blocked-section");
   const logoutBtn = document.getElementById("logout-btn");
   const userLabel = document.getElementById("user-label");
 
@@ -80,23 +82,38 @@ async function refreshAuthUI() {
       authSection.classList.remove("hidden");
       appSection.classList.add("hidden");
       pendingSection.classList.add("hidden");
+      if (blockedSection) blockedSection.classList.add("hidden");
+      return;
+    }
+
+    // Un compte bloqué (retraits tardifs répétés, ou décision manuelle de
+    // l'admin) ne doit jamais accéder au calendrier, même si la session
+    // du navigateur est encore valide.
+    if (profile.blocked) {
+      authSection.classList.add("hidden");
+      appSection.classList.add("hidden");
+      pendingSection.classList.add("hidden");
+      if (blockedSection) blockedSection.classList.remove("hidden");
       return;
     }
 
     if (profile.approved) {
       authSection.classList.add("hidden");
       pendingSection.classList.add("hidden");
+      if (blockedSection) blockedSection.classList.add("hidden");
       appSection.classList.remove("hidden");
       if (typeof onAuthenticated === "function") onAuthenticated(session.user, profile);
     } else {
       authSection.classList.add("hidden");
       appSection.classList.add("hidden");
+      if (blockedSection) blockedSection.classList.add("hidden");
       pendingSection.classList.remove("hidden");
     }
   } else {
     authSection.classList.remove("hidden");
     appSection.classList.add("hidden");
     pendingSection.classList.add("hidden");
+    if (blockedSection) blockedSection.classList.add("hidden");
     logoutBtn.classList.add("hidden");
     userLabel.classList.add("hidden");
   }
