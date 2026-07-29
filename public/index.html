@@ -81,6 +81,7 @@
       <span class="badge confirmed">Tournoi confirmé</span>
       <span class="badge available">Tournoi possible (journée)</span>
       <span class="badge evening">Tournoi possible (soirée)</span>
+      <span class="badge friendly">Match amical</span>
     </div>
   </section>
 
@@ -90,7 +91,7 @@
 <div id="request-modal" class="modal-overlay hidden">
   <div class="modal">
     <h3 id="modal-day-name"></h3>
-    <label for="modal-message">Message (optionnel)</label>
+    <label for="modal-message" id="modal-message-label">Message (optionnel)</label>
     <textarea id="modal-message" placeholder="Précisez votre demande..."></textarea>
     <div id="modal-error" class="msg error"></div>
     <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
