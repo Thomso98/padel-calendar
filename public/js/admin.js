@@ -374,6 +374,18 @@ async function handleTournamentFormSubmit(e) {
     return;
   }
 
+  // Vérifie si ce tournoi existe déjà (même date/titre/lieu) AVANT
+  // l'upsert : dans ce cas c'est une mise à jour, pas un nouveau
+  // tournoi, et on ne prévient pas les joueurs par email (voir plus bas,
+  // chantier 1.3 "Calendrier mis à jour").
+  let existingQuery = supabaseClient
+    .from("day_tournaments")
+    .select("id")
+    .eq("date", date)
+    .eq("title", title);
+  existingQuery = location ? existingQuery.eq("location", location) : existingQuery.is("location", null);
+  const { data: existing } = await existingQuery.maybeSingle();
+
   const { error } = await supabaseClient
     .from("day_tournaments")
     .upsert({ date, title, location, description, is_evening }, { onConflict: "date,title,location" });
@@ -388,6 +400,21 @@ async function handleTournamentFormSubmit(e) {
   errEl.className = "msg success";
   document.getElementById("tournament-form").reset();
   await loadTournaments();
+
+  // Nouveau tournoi (pas une simple mise à jour) : prévient tous les
+  // comptes validés par email, best-effort (un échec d'envoi ne doit
+  // jamais faire échouer l'ajout du tournoi, déjà effectué ci-dessus).
+  if (!existing) {
+    try {
+      await fetch("/api/notify-tournaments-added", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tournaments: [{ date, title, location, is_evening }] }),
+      });
+    } catch (e) {
+      console.warn("Email de calendrier mis à jour non envoyé :", e);
+    }
+  }
 }
 
 async function loadTournaments() {
@@ -536,6 +563,25 @@ async function confirmAdminCancelTournament() {
   const errEl = document.getElementById("admin-cancel-modal-error");
   errEl.textContent = "";
 
+  // Récupère les infos du tournoi et les joueurs dont la demande était
+  // approuvée AVANT de supprimer les demandes plus bas (chantier 1.2
+  // "Annulation de tournoi") : une fois les lignes "requests" effacées,
+  // cette information est perdue pour toujours.
+  const [{ data: tournamentRow }, { data: approvedRequests }] = await Promise.all([
+    supabaseClient.from("day_tournaments").select("*").eq("id", tournamentId).single(),
+    supabaseClient.from("requests").select("user_id").eq("tournament_id", tournamentId).eq("status", "approved"),
+  ]);
+
+  let recipients = [];
+  if (approvedRequests && approvedRequests.length > 0) {
+    const userIds = approvedRequests.map((r) => r.user_id);
+    const { data: profiles } = await supabaseClient
+      .from("profiles")
+      .select("email, full_name")
+      .in("id", userIds);
+    recipients = profiles || [];
+  }
+
   // 1. Le tournoi redevient "actif" (visible dans "Tournois disponibles")
   //    ou passe en "removed" (masqué du calendrier et des deux tableaux).
   const { error: tError } = await supabaseClient
@@ -556,6 +602,28 @@ async function confirmAdminCancelTournament() {
     .from("requests")
     .delete()
     .eq("tournament_id", tournamentId);
+
+  // 3. Email d'annulation aux joueurs dont la demande était approuvée,
+  //    best-effort (un échec d'envoi ne doit jamais bloquer l'annulation
+  //    elle-même, déjà effectuée ci-dessus).
+  if (recipients.length > 0 && tournamentRow) {
+    try {
+      await fetch("/api/notify-tournament-cancelled", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipients,
+          tournament: {
+            title: tournamentRow.title,
+            date: tournamentRow.date,
+            location: tournamentRow.location,
+          },
+        }),
+      });
+    } catch (e) {
+      console.warn("Email d'annulation non envoyé :", e);
+    }
+  }
 
   closeAdminCancelModal();
   await Promise.all([loadTournaments(), loadValidatedTournaments(), loadPendingRequests()]);
@@ -642,12 +710,12 @@ async function loadPendingRequests() {
     const approveBtn = document.createElement("button");
     approveBtn.className = "primary";
     approveBtn.textContent = "Valider";
-    approveBtn.addEventListener("click", () => resolveRequest(r, "approved", tournament));
+    approveBtn.addEventListener("click", () => resolveRequest(r, "approved", tournament, profile));
 
     const rejectBtn = document.createElement("button");
     rejectBtn.className = "danger";
     rejectBtn.textContent = "Refuser";
-    rejectBtn.addEventListener("click", () => resolveRequest(r, "rejected", tournament));
+    rejectBtn.addEventListener("click", () => resolveRequest(r, "rejected", tournament, profile));
 
     actions.appendChild(approveBtn);
     actions.appendChild(rejectBtn);
@@ -658,7 +726,7 @@ async function loadPendingRequests() {
   });
 }
 
-async function resolveRequest(request, decision, tournament) {
+async function resolveRequest(request, decision, tournament, profile) {
   // 1. Met à jour la demande choisie
   const { error } = await supabaseClient
     .from("requests")
@@ -705,6 +773,31 @@ async function resolveRequest(request, decision, tournament) {
         .from("day_tournaments")
         .update({ status: "removed" })
         .in("id", siblingIds);
+    }
+
+    // 4. Email de confirmation au joueur, best-effort (un échec d'envoi
+    //    ne doit jamais bloquer la validation elle-même, déjà effectuée
+    //    ci-dessus). Chantier 1.1 "Confirmation de tournoi validé".
+    if (profile && profile.email) {
+      try {
+        await fetch("/api/notify-tournament-approved", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: profile.email,
+            full_name: profile.full_name,
+            tournament: {
+              title: tournament.title,
+              date: tournament.date,
+              location: tournament.location,
+              is_evening: tournament.is_evening,
+              description: tournament.description,
+            },
+          }),
+        });
+      } catch (e) {
+        console.warn("Email de confirmation non envoyé :", e);
+      }
     }
   }
 
