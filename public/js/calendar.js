@@ -159,17 +159,30 @@ function renderCalendar() {
 
 function appendTournamentCard(cell, tournament, past) {
   const isFriendly = tournament.type === "friendly";
+  const myReqForLockCheck = myRequestsByTournamentId[tournament.id];
+  // "Bloqué" : une demande pending existe sur ce tournoi, faite par un
+  // AUTRE utilisateur que la personne qui regarde le calendrier (si
+  // c'est sa propre demande pending, on garde l'affichage habituel
+  // "Demande envoyée" + bouton annuler, géré plus bas).
+  const lockedByOther =
+    tournament.status === "active" &&
+    tournament.has_pending_request &&
+    !(myReqForLockCheck && myReqForLockCheck.status === "pending");
+
   const card = document.createElement("div");
   card.className =
     "tournament-card" +
     (isFriendly ? " friendly" : tournament.is_evening ? " evening" : " day") +
-    (tournament.status === "confirmed" ? " confirmed" : "");
+    (tournament.status === "confirmed" ? " confirmed" : "") +
+    (lockedByOther ? " locked" : "");
 
   const badge = document.createElement("span");
   badge.className =
     "badge " +
     (tournament.status === "confirmed"
       ? "confirmed"
+      : lockedByOther
+      ? "locked"
       : isFriendly
       ? "friendly"
       : tournament.is_evening
@@ -178,6 +191,8 @@ function appendTournamentCard(cell, tournament, past) {
   badge.textContent =
     tournament.status === "confirmed"
       ? "Complet — indisponible"
+      : lockedByOther
+      ? "En attente de validation"
       : isFriendly
       ? "Match amical"
       : tournament.is_evening
@@ -225,7 +240,11 @@ function appendTournamentCard(cell, tournament, past) {
         s.className = "badge cancelled";
         s.textContent = "Demande annulée";
         card.appendChild(s);
-        addRequestButton(card, tournament, "Redemander");
+        if (!lockedByOther) addRequestButton(card, tournament, "Redemander");
+      } else if (lockedByOther) {
+        // Un autre joueur a déjà une demande en attente sur ce tournoi :
+        // pas de bouton, juste le badge orange "En attente de validation"
+        // déjà ajouté plus haut.
       } else {
         addRequestButton(card, tournament, isFriendly ? "Proposer un match" : "Demander à jouer");
       }
@@ -347,6 +366,31 @@ async function submitRequest() {
       return;
     }
     tournamentId = newId;
+  }
+
+  // Vérification anti-course : un autre joueur a pu envoyer une demande
+  // entre l'ouverture de la modale et ce clic. day_tournaments.status
+  // (confirmé/annulé entre-temps) et has_pending_request (nouvelle
+  // demande d'un autre joueur) sont donc revérifiés juste avant l'envoi.
+  const { data: freshTournament, error: freshError } = await supabaseClient
+    .from("day_tournaments")
+    .select("status, has_pending_request")
+    .eq("id", tournamentId)
+    .single();
+
+  if (freshError) {
+    errEl.textContent = freshError.message;
+    return;
+  }
+  if (freshTournament && freshTournament.status !== "active") {
+    errEl.textContent = "Ce tournoi n'est plus disponible, quelqu'un vient de le prendre.";
+    await loadMonth();
+    return;
+  }
+  if (freshTournament && freshTournament.has_pending_request) {
+    errEl.textContent = "Une demande est déjà en attente de validation sur ce tournoi. Réessayez plus tard si elle est refusée.";
+    await loadMonth();
+    return;
   }
 
   const { error } = await supabaseClient.from("requests").insert({
