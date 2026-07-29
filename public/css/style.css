@@ -203,7 +203,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 }
 
 .badge.rest { background: #dcdfe3; color: #555; }
-.badge.confirmed { background: var(--blue); color: #fff; }
+.badge.confirmed { background: #4a4f57; color: #fff; }
 .badge.available { background: var(--green); color: #fff; }
 .badge.evening { background: var(--blue); color: #fff; }
 .badge.friendly { background: var(--purple); color: #fff; }
@@ -228,8 +228,24 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   border-color: var(--blue);
 }
 
+/* Tournoi validé : plus du tout disponible. Rendu volontairement très
+   distinct des cases "disponibles" (grisé, opacité réduite, titre
+   barré) pour qu'on comprenne au premier coup d'oeil que ce créneau
+   n'est plus ouvert aux demandes, quelle que soit sa couleur d'origine
+   (journée / soirée / match amical). */
 .tournament-card.confirmed {
-  border-width: 2px;
+  background: #e7e8ea !important;
+  border: 1px solid #b3b7bd !important;
+  opacity: 0.75;
+}
+
+.tournament-card.confirmed .tournament-name {
+  text-decoration: line-through;
+  color: #5a5f66;
+}
+
+.tournament-card.confirmed .tournament-loc {
+  color: #82868c;
 }
 
 .tournament-card button.request-btn {
