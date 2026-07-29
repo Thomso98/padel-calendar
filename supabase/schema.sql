@@ -16,6 +16,17 @@ create table public.profiles (
   phone text,
   role text not null default 'user' check (role in ('user', 'admin')),
   approved boolean not null default false,
+  -- Infos perso complémentaires (espace "Mon compte")
+  license_number text,
+  birth_date date,
+  avatar_url text,
+  ranking text,
+  -- Gestion des retraits tardifs / blocage de compte (géré uniquement par l'admin,
+  -- voir le trigger prevent_privileged_self_update ci-dessous)
+  late_withdrawals_count int not null default 0,
+  blocked boolean not null default false,
+  blocked_reason text,
+  blocked_at timestamptz,
   created_at timestamptz not null default now()
 );
 
@@ -80,6 +91,21 @@ begin
     end if;
     if new.approved <> old.approved then
       new.approved := old.approved;
+    end if;
+    -- Le blocage de compte et le compteur de retraits tardifs ne sont
+    -- modifiables que par un admin (ou le backend via service_role),
+    -- jamais par l'utilisateur lui-même.
+    if new.blocked is distinct from old.blocked then
+      new.blocked := old.blocked;
+    end if;
+    if new.blocked_reason is distinct from old.blocked_reason then
+      new.blocked_reason := old.blocked_reason;
+    end if;
+    if new.blocked_at is distinct from old.blocked_at then
+      new.blocked_at := old.blocked_at;
+    end if;
+    if new.late_withdrawals_count is distinct from old.late_withdrawals_count then
+      new.late_withdrawals_count := old.late_withdrawals_count;
     end if;
   end if;
   return new;
@@ -175,6 +201,11 @@ create table public.requests (
   user_id uuid not null references public.profiles(id) on delete cascade,
   message text,
   status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled', 'cancelled_by_admin')),
+  -- true si l'annulation de cette demande (déjà approuvée) a eu lieu à moins
+  -- de 48h du début du tournoi : compte comme un retrait tardif (voir
+  -- profiles.late_withdrawals_count). Ne doit être posé qu'une seule fois
+  -- par demande, pour ne jamais recompter deux fois le même retrait.
+  late_withdrawal boolean not null default false,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, tournament_id)
@@ -266,6 +297,39 @@ create policy "requests_cancel_own" on public.requests
   for update to authenticated
   using (user_id = auth.uid() and status = 'pending')
   with check (user_id = auth.uid() and status = 'cancelled');
+
+-- ============================================================
+-- Stockage : bucket pour les photos de profil (espace "Mon compte").
+-- Convention de nommage des fichiers : "<user_id>/<nom_de_fichier>",
+-- pour que les policies ci-dessous puissent vérifier que chacun ne
+-- touche qu'à son propre dossier. Lecture publique (photos affichées
+-- aux autres joueurs et à l'admin sur les demandes), écriture réservée
+-- au propriétaire du dossier.
+-- ============================================================
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+-- Row Level Security est déjà activé par défaut par Supabase sur
+-- storage.objects (impossible à ré-activer via SQL Editor : la table
+-- appartient à supabase_storage_admin, pas au rôle postgres).
+
+create policy "avatars_public_read" on storage.objects
+  for select
+  using (bucket_id = 'avatars');
+
+create policy "avatars_insert_own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "avatars_update_own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text)
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+create policy "avatars_delete_own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
 
 -- ============================================================
 -- Dernière étape manuelle (à faire une fois, voir README) :
