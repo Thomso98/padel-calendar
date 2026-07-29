@@ -85,7 +85,13 @@ security definer
 set search_path = public
 as $$
 begin
-  if auth.role() <> 'service_role' and not public.is_admin() then
+  if auth.role() <> 'service_role'
+     and not public.is_admin()
+     -- Échappatoire ciblée : uniquement posée en interne par la
+     -- fonction withdraw_from_tournament (plus bas), pour la durée de
+     -- sa propre transaction. Un client ne peut pas positionner ce
+     -- paramètre lui-même (set_config n'est pas exposé via l'API REST).
+     and coalesce(current_setting('app.bypass_privilege_check', true), 'false') <> 'true' then
     if new.role <> old.role then
       new.role := old.role;
     end if;
@@ -197,6 +203,81 @@ $$;
 
 grant execute on function public.ensure_friendly_slot(date) to authenticated;
 
+-- Annule une demande déjà approuvée (onglet "Mes tournois"), pour
+-- l'utilisateur courant uniquement. Un joueur n'a normalement pas le
+-- droit de modifier day_tournaments (réservé à l'admin) ni ses propres
+-- blocked/late_withdrawals_count (trigger prevent_privileged_self_update
+-- ci-dessus) : cette fonction, étroitement scopée, fait exactement les
+-- deux opérations nécessaires, rien de plus. Détermine elle-même côté
+-- serveur (jamais confiance dans le client) si c'est un retrait tardif
+-- (< 48h avant le début du tournoi, minuit faute d'heure précise en
+-- base) et applique les conséquences (compteur, blocage au 3e) si besoin.
+create function public.withdraw_from_tournament(p_request_id uuid, p_comment text default null)
+returns table(is_late boolean, will_block boolean, new_late_count int)
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_request public.requests%rowtype;
+  v_tournament public.day_tournaments%rowtype;
+  v_hours_until numeric;
+  v_is_late boolean;
+  v_new_count int;
+  v_will_block boolean := false;
+begin
+  select * into v_request from public.requests
+    where id = p_request_id and user_id = auth.uid() and status = 'approved'
+    for update;
+
+  if not found then
+    raise exception 'Demande introuvable, ou déjà annulée/traitée';
+  end if;
+
+  select * into v_tournament from public.day_tournaments
+    where id = v_request.tournament_id
+    for update;
+
+  if not found then
+    raise exception 'Tournoi introuvable';
+  end if;
+
+  v_hours_until := extract(epoch from (v_tournament.date::timestamp - now())) / 3600;
+  v_is_late := v_hours_until < 48;
+
+  if v_is_late then
+    select late_withdrawals_count + 1 into v_new_count
+      from public.profiles where id = auth.uid();
+    v_will_block := v_new_count >= 3;
+
+    perform set_config('app.bypass_privilege_check', 'true', true);
+    update public.profiles
+      set late_withdrawals_count = v_new_count,
+          blocked = case when v_will_block then true else blocked end,
+          blocked_reason = case when v_will_block then coalesce(p_comment, '3e retrait tardif') else blocked_reason end,
+          blocked_at = case when v_will_block then now() else blocked_at end
+      where id = auth.uid();
+  else
+    select late_withdrawals_count into v_new_count
+      from public.profiles where id = auth.uid();
+  end if;
+
+  update public.requests
+    set status = 'cancelled',
+        late_withdrawal = v_is_late,
+        late_withdrawal_comment = p_comment
+    where id = p_request_id;
+
+  update public.day_tournaments
+    set status = 'active'
+    where id = v_request.tournament_id;
+
+  return query select v_is_late, v_will_block, v_new_count;
+end;
+$$;
+
+grant execute on function public.withdraw_from_tournament(uuid, text) to authenticated;
+
 -- -----------------------------------------------------------
 -- Table des demandes des utilisateurs. Un joueur peut faire
 -- plusieurs demandes pour la même date (tournois différents), mais
@@ -213,6 +294,9 @@ create table public.requests (
   -- profiles.late_withdrawals_count). Ne doit être posé qu'une seule fois
   -- par demande, pour ne jamais recompter deux fois le même retrait.
   late_withdrawal boolean not null default false,
+  -- Raison facultative donnée par le joueur lors d'un retrait tardif
+  -- (voir withdraw_from_tournament plus bas).
+  late_withdrawal_comment text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, tournament_id)
