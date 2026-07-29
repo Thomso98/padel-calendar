@@ -12,9 +12,30 @@ function defaultAvatarUrl(profile, user) {
   return "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(seed);
 }
 
+// Découpage de secours pour les comptes créés avant l'ajout des champs
+// first_name/last_name (l'inscription ne demandait qu'un seul champ
+// "Nom", stocké dans full_name) : sert uniquement à pré-remplir Nom /
+// Prénom une première fois, tant que l'utilisateur n'a pas encore
+// enregistré les deux champs séparément.
+function splitFullName(fullName) {
+  const trimmed = (fullName || "").trim();
+  if (!trimmed) return { first: "", last: "" };
+  const parts = trimmed.split(/\s+/);
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+
 function fillAccountForm(profile, user) {
   document.getElementById("account-email").value = (user && user.email) || "";
-  document.getElementById("account-full-name").value = profile.full_name || "";
+
+  if (profile.first_name || profile.last_name) {
+    document.getElementById("account-first-name").value = profile.first_name || "";
+    document.getElementById("account-last-name").value = profile.last_name || "";
+  } else {
+    const guess = splitFullName(profile.full_name);
+    document.getElementById("account-first-name").value = guess.first;
+    document.getElementById("account-last-name").value = guess.last;
+  }
+
   document.getElementById("account-license").value = profile.license_number || "";
   document.getElementById("account-birth-date").value = profile.birth_date || "";
   document.getElementById("account-ranking").value = profile.ranking || "";
@@ -44,15 +65,26 @@ async function handleAccountSubmit(e) {
   errEl.textContent = "";
   errEl.className = "msg";
 
+  const firstName = document.getElementById("account-first-name").value.trim();
+  const lastName = document.getElementById("account-last-name").value.trim();
+
   // Seuls les champs personnels sont envoyés : role/approved/blocked/
   // late_withdrawals_count etc. ne sont de toute façon pas dans ce
   // formulaire, et seraient de toute manière rejetés par le trigger
   // prevent_privileged_self_update si on tentait de les modifier ici.
+  // "ranking" (classement padel) est volontairement absent : il n'est
+  // jamais modifiable par le joueur (verrouillé aussi côté base par ce
+  // même trigger), seulement calculé automatiquement à partir de la
+  // licence par la tâche planifiée tenup-padel-ranking-lookup.
   const updates = {
-    full_name: document.getElementById("account-full-name").value.trim() || null,
+    first_name: firstName || null,
+    last_name: lastName || null,
+    // full_name recalculé à partir de Nom/Prénom : conservé en base
+    // pour ne pas casser les affichages qui l'utilisent encore
+    // (listes admin, avatar par défaut, emails).
+    full_name: [firstName, lastName].filter(Boolean).join(" ") || null,
     license_number: document.getElementById("account-license").value.trim() || null,
     birth_date: document.getElementById("account-birth-date").value || null,
-    ranking: document.getElementById("account-ranking").value.trim() || null,
   };
 
   const { data, error } = await supabaseClient
