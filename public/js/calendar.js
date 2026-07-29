@@ -133,7 +133,24 @@ function renderCalendar() {
       }
     } else {
       const list = tournamentsByDate[iso] || [];
-      list.forEach((t) => appendTournamentCard(cell, t, past));
+      const officialList = list.filter((t) => t.type !== "friendly");
+      officialList.forEach((t) => appendTournamentCard(cell, t, past));
+
+      // Case "Match amical" : toujours affichée en dernier, tous les
+      // jours (hors repos / tournoi confirmé). Si aucune ligne n'existe
+      // encore en base pour cette date, on affiche une case "virtuelle"
+      // (id vide) : la ligne réelle n'est créée qu'au moment où un
+      // joueur clique sur "Demander à jouer" (fonction ensure_friendly_slot).
+      const friendly = list.find((t) => t.type === "friendly") || {
+        id: "",
+        date: iso,
+        title: "Match amical",
+        location: null,
+        is_evening: false,
+        status: "active",
+        type: "friendly",
+      };
+      appendTournamentCard(cell, friendly, past);
     }
 
     grid.appendChild(cell);
@@ -141,18 +158,31 @@ function renderCalendar() {
 }
 
 function appendTournamentCard(cell, tournament, past) {
+  const isFriendly = tournament.type === "friendly";
   const card = document.createElement("div");
   card.className =
     "tournament-card" +
-    (tournament.is_evening ? " evening" : " day") +
+    (isFriendly ? " friendly" : tournament.is_evening ? " evening" : " day") +
     (tournament.status === "confirmed" ? " confirmed" : "");
 
   const badge = document.createElement("span");
   badge.className =
     "badge " +
-    (tournament.status === "confirmed" ? "confirmed" : tournament.is_evening ? "evening" : "available");
+    (tournament.status === "confirmed"
+      ? "confirmed"
+      : isFriendly
+      ? "friendly"
+      : tournament.is_evening
+      ? "evening"
+      : "available");
   badge.textContent =
-    tournament.status === "confirmed" ? "Validé" : tournament.is_evening ? "Soirée" : "Tournoi possible";
+    tournament.status === "confirmed"
+      ? "Validé"
+      : isFriendly
+      ? "Match amical"
+      : tournament.is_evening
+      ? "Soirée"
+      : "Tournoi possible";
   card.appendChild(badge);
 
   const name = document.createElement("div");
@@ -232,12 +262,20 @@ function showGlobalMessage(text) {
 
 // --- Modal de demande ---
 function openRequestModal(tournament) {
+  const isFriendly = tournament.type === "friendly";
+  const modal = document.getElementById("request-modal");
+
   document.getElementById("modal-day-name").textContent =
     (tournament.title || "Tournoi") + " — " + tournament.date + (tournament.location ? " — " + tournament.location : "");
   document.getElementById("modal-message").value = "";
-  document.getElementById("request-modal").dataset.tournamentId = tournament.id;
+  document.getElementById("modal-message-label").textContent = isFriendly
+    ? "Description (obligatoire)"
+    : "Message (optionnel)";
+  modal.dataset.tournamentId = tournament.id || "";
+  modal.dataset.date = tournament.date;
+  modal.dataset.requireMessage = isFriendly ? "true" : "false";
   document.getElementById("modal-error").textContent = "";
-  document.getElementById("request-modal").classList.remove("hidden");
+  modal.classList.remove("hidden");
 }
 
 function closeRequestModal() {
@@ -245,10 +283,30 @@ function closeRequestModal() {
 }
 
 async function submitRequest() {
-  const tournamentId = document.getElementById("request-modal").dataset.tournamentId;
+  const modal = document.getElementById("request-modal");
+  let tournamentId = modal.dataset.tournamentId;
+  const requireMessage = modal.dataset.requireMessage === "true";
   const message = document.getElementById("modal-message").value.trim();
   const errEl = document.getElementById("modal-error");
   errEl.textContent = "";
+
+  if (requireMessage && !message) {
+    errEl.textContent = "Merci de renseigner une description avant de confirmer votre demande.";
+    return;
+  }
+
+  // Case "Match amical" pas encore créée en base pour cette date : on la
+  // crée (ou récupère celle qui existe déjà) via la fonction dédiée.
+  if (!tournamentId) {
+    const { data: newId, error: rpcError } = await supabaseClient.rpc("ensure_friendly_slot", {
+      p_date: modal.dataset.date,
+    });
+    if (rpcError) {
+      errEl.textContent = rpcError.message;
+      return;
+    }
+    tournamentId = newId;
+  }
 
   const { error } = await supabaseClient.from("requests").insert({
     tournament_id: tournamentId,

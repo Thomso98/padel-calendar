@@ -248,7 +248,7 @@ async function loadTournaments() {
     tr.appendChild(tdLoc);
 
     const tdEvening = document.createElement("td");
-    tdEvening.textContent = t.is_evening ? "Soirée" : "Journée";
+    tdEvening.textContent = t.type === "friendly" ? "Match amical" : t.is_evening ? "Soirée" : "Journée";
     tr.appendChild(tdEvening);
 
     const tdStatus = document.createElement("td");
@@ -368,17 +368,20 @@ async function resolveRequest(request, decision, tournament) {
       .update({ status: "confirmed" })
       .eq("id", tournament.id);
 
-    // 3. Les autres tournois de la même date ET de la même catégorie
-    //    (journée / soirée) sont retirés du calendrier, et leurs
-    //    éventuelles demandes en attente sont automatiquement refusées.
-    //    Les tournois de l'autre catégorie (ex : soirée si celui validé
-    //    est en journée) restent disponibles.
+    // 3. Les autres tournois OFFICIELS de la même date ET de la même
+    //    catégorie (journée / soirée) sont retirés du calendrier, et
+    //    leurs éventuelles demandes en attente sont automatiquement
+    //    refusées. Les tournois de l'autre catégorie (ex : soirée si
+    //    celui validé est en journée) restent disponibles, et la case
+    //    "Match amical" (type friendly) n'est JAMAIS touchée par cette
+    //    cascade, quel que soit son créneau.
     const { data: siblings } = await supabaseClient
       .from("day_tournaments")
       .select("id")
       .eq("date", tournament.date)
       .eq("is_evening", tournament.is_evening)
       .eq("status", "active")
+      .eq("type", "official")
       .neq("id", tournament.id);
 
     const siblingIds = (siblings || []).map((s) => s.id);
