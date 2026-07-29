@@ -280,6 +280,12 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .tournament-name { font-weight: 600; line-height: 1.2; }
 .tournament-loc { color: #666; font-size: 11px; }
 
+#modal-tournament-description a {
+  color: var(--blue);
+  text-decoration: underline;
+  word-break: break-all;
+}
+
 /* --- Modal --- */
 .modal-overlay {
   position: fixed;
