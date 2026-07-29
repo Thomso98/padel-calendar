@@ -227,7 +227,7 @@ function appendTournamentCard(cell, tournament, past) {
         card.appendChild(s);
         addRequestButton(card, tournament, "Redemander");
       } else {
-        addRequestButton(card, tournament, "Demander à jouer");
+        addRequestButton(card, tournament, isFriendly ? "Proposer un match" : "Demander à jouer");
       }
     }
   }
@@ -265,8 +265,25 @@ function openRequestModal(tournament) {
   const isFriendly = tournament.type === "friendly";
   const modal = document.getElementById("request-modal");
 
-  document.getElementById("modal-day-name").textContent =
-    (tournament.title || "Tournoi") + " — " + tournament.date + (tournament.location ? " — " + tournament.location : "");
+  // Nom du tournoi en gras (titre de la modal)
+  document.getElementById("modal-day-name").textContent = tournament.title || (isFriendly ? "Match amical" : "Tournoi");
+
+  // Date / lieu, juste en dessous
+  const metaParts = [tournament.date];
+  if (tournament.location) metaParts.push(tournament.location);
+  document.getElementById("modal-tournament-meta").textContent = metaParts.join(" — ");
+
+  // Description copiée telle quelle depuis la fiche du tournoi sur Ten'Up
+  // (remplie par le scan automatique, ou à la main par l'admin)
+  const descEl = document.getElementById("modal-tournament-description");
+  if (tournament.description && tournament.description.trim()) {
+    descEl.textContent = tournament.description.trim();
+    descEl.classList.remove("hidden");
+  } else {
+    descEl.textContent = "";
+    descEl.classList.add("hidden");
+  }
+
   document.getElementById("modal-message").value = "";
   document.getElementById("modal-message-label").textContent = isFriendly
     ? "Description (obligatoire)"

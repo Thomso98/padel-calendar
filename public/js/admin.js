@@ -188,6 +188,7 @@ async function handleTournamentFormSubmit(e) {
   const date = document.getElementById("tournament-date").value;
   const title = document.getElementById("tournament-title").value.trim();
   const location = document.getElementById("tournament-location").value.trim() || null;
+  const description = document.getElementById("tournament-description").value.trim() || null;
   const is_evening = document.getElementById("tournament-evening").checked;
 
   if (!date || !title) {
@@ -198,7 +199,7 @@ async function handleTournamentFormSubmit(e) {
 
   const { error } = await supabaseClient
     .from("day_tournaments")
-    .upsert({ date, title, location, is_evening }, { onConflict: "date,title,location" });
+    .upsert({ date, title, location, description, is_evening }, { onConflict: "date,title,location" });
 
   if (error) {
     errEl.textContent = error.message;
