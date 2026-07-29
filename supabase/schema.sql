@@ -174,7 +174,7 @@ create table public.requests (
   tournament_id uuid not null references public.day_tournaments(id) on delete cascade,
   user_id uuid not null references public.profiles(id) on delete cascade,
   message text,
-  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled')),
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'cancelled', 'cancelled_by_admin')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   unique (user_id, tournament_id)
