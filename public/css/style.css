@@ -339,6 +339,21 @@ table.admin-table th, table.admin-table td {
   border: 1px solid var(--border);
 }
 
+/* --- Filtres de recherche (calendrier public) --- */
+.filters-row {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.filters-row > div {
+  min-width: 160px;
+}
+
+.filters-row select {
+  width: 100%;
+}
+
 /* --- Espace "Mon compte" --- */
 .account-avatar-row {
   display: flex;
