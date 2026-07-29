@@ -63,26 +63,51 @@
     <p>Un administrateur doit valider votre compte avant que vous puissiez accéder au calendrier. Revenez un peu plus tard, ou reconnectez-vous une fois prévenu.</p>
   </section>
 
+  <!-- Compte bloqué -->
+  <section id="blocked-section" class="card hidden">
+    <p><strong>Votre compte est bloqué.</strong></p>
+    <p>Contactez l'administrateur pour connaître la raison et demander un déblocage. Vous serez prévenu par email dès que votre compte sera de nouveau actif.</p>
+  </section>
+
   <!-- App -->
   <section id="app-section" class="hidden">
     <div id="global-msg" class="msg success hidden" style="margin-bottom:12px;"></div>
-    <div class="card">
-      <div class="cal-header">
-        <button id="prev-month" class="secondary">← Précédent</button>
-        <h2 id="cal-title"></h2>
-        <button id="next-month" class="secondary">Suivant →</button>
-      </div>
-      <div id="cal-grid" class="cal-grid"></div>
+
+    <div class="auth-tabs" style="margin-bottom:20px;">
+      <button id="tab-calendar" class="active" type="button">Calendrier</button>
+      <button id="tab-my-tournaments" type="button">Mes tournois</button>
     </div>
 
-    <div class="card">
-      <strong>Légende :</strong>
-      <span class="badge rest">Repos</span>
-      <span class="badge confirmed">Complet — indisponible</span>
-      <span class="badge locked">En attente de validation</span>
-      <span class="badge available">Tournoi possible (journée)</span>
-      <span class="badge evening">Tournoi possible (soirée)</span>
-      <span class="badge friendly">Match amical</span>
+    <div id="calendar-view">
+      <div class="card">
+        <div class="cal-header">
+          <button id="prev-month" class="secondary">← Précédent</button>
+          <h2 id="cal-title"></h2>
+          <button id="next-month" class="secondary">Suivant →</button>
+        </div>
+        <div id="cal-grid" class="cal-grid"></div>
+      </div>
+
+      <div class="card">
+        <strong>Légende :</strong>
+        <span class="badge rest">Repos</span>
+        <span class="badge confirmed">Complet — indisponible</span>
+        <span class="badge locked">En attente de validation</span>
+        <span class="badge available">Tournoi possible (journée)</span>
+        <span class="badge evening">Tournoi possible (soirée)</span>
+        <span class="badge friendly">Match amical</span>
+      </div>
+    </div>
+
+    <div id="my-tournaments-view" class="hidden">
+      <div class="card">
+        <h2>Tournois à venir</h2>
+        <div id="my-tournaments-upcoming"></div>
+      </div>
+      <div class="card">
+        <h2>Tournois joués</h2>
+        <div id="my-tournaments-played"></div>
+      </div>
     </div>
   </section>
 
@@ -113,6 +138,24 @@
     <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
       <button id="cancel-modal-no" class="secondary">Non</button>
       <button id="cancel-modal-yes" class="danger">Oui, annuler</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal d'annulation d'un tournoi déjà validé (onglet "Mes tournois"),
+     avec logique de retrait tardif -->
+<div id="withdraw-modal" class="modal-overlay hidden">
+  <div class="modal">
+    <h3 id="withdraw-modal-title">Annuler ce tournoi ?</h3>
+    <p id="withdraw-modal-text"></p>
+    <div id="withdraw-modal-comment-wrap" class="hidden">
+      <label for="withdraw-modal-comment">Commentaire (facultatif)</label>
+      <textarea id="withdraw-modal-comment" placeholder="Raison du retrait tardif..."></textarea>
+    </div>
+    <div id="withdraw-modal-error" class="msg error"></div>
+    <div class="row-actions" style="margin-top:16px; justify-content:flex-end;">
+      <button id="withdraw-modal-back" class="secondary" type="button">Retour</button>
+      <button id="withdraw-modal-confirm" class="danger" type="button">Confirmer l'annulation</button>
     </div>
   </div>
 </div>
