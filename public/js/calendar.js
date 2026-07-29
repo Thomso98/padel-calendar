@@ -266,6 +266,30 @@ function showGlobalMessage(text) {
   showGlobalMessage._timer = setTimeout(() => el.classList.add("hidden"), 5000);
 }
 
+// Échappe le HTML puis transforme tout lien http(s) trouvé dans le texte
+// en lien cliquable. Permet d'afficher tel quel un lien copié depuis la
+// fiche Ten'Up (ex: lien d'inscription, règlement PDF...) tout en évitant
+// l'injection de HTML arbitraire dans la description.
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function linkifyDescription(text) {
+  const escaped = escapeHtml(text);
+  const urlRegex = /(https?:\/\/[^\s<>"']+)/g;
+  return escaped.replace(urlRegex, (url) => {
+    // Ne garde pas la ponctuation de fin de phrase collée au lien (. , ) etc.)
+    const trailingMatch = url.match(/[).,;:!?]+$/);
+    const trailing = trailingMatch ? trailingMatch[0] : "";
+    const cleanUrl = trailing ? url.slice(0, -trailing.length) : url;
+    return `<a href="${cleanUrl}" target="_blank" rel="noopener noreferrer">${cleanUrl}</a>${trailing}`;
+  });
+}
+
 // --- Modal de demande ---
 function openRequestModal(tournament) {
   const isFriendly = tournament.type === "friendly";
@@ -283,10 +307,10 @@ function openRequestModal(tournament) {
   // (remplie par le scan automatique, ou à la main par l'admin)
   const descEl = document.getElementById("modal-tournament-description");
   if (tournament.description && tournament.description.trim()) {
-    descEl.textContent = tournament.description.trim();
+    descEl.innerHTML = linkifyDescription(tournament.description.trim());
     descEl.classList.remove("hidden");
   } else {
-    descEl.textContent = "";
+    descEl.innerHTML = "";
     descEl.classList.add("hidden");
   }
 
