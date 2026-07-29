@@ -119,6 +119,7 @@ create table public.day_tournaments (
   title text not null,
   location text,
   is_evening boolean not null default false,
+  type text not null default 'official' check (type in ('official', 'friendly')),
   status text not null default 'active' check (status in ('active', 'confirmed', 'removed')),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -126,6 +127,41 @@ create table public.day_tournaments (
 );
 
 create index day_tournaments_date_idx on public.day_tournaments(date);
+
+-- Fonction utilisée par le calendrier public : crée (ou récupère) la
+-- case "Match amical" du jour pour une date donnée. N'importe quel
+-- utilisateur approuvé peut l'appeler (contourne volontairement la
+-- policy day_tournaments_insert_admin, réservée aux tournois officiels
+-- remplis par Ten'Up / l'admin).
+create function public.ensure_friendly_slot(p_date date)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+begin
+  if not (public.is_approved() or public.is_admin()) then
+    raise exception 'not authorized';
+  end if;
+
+  select id into v_id from public.day_tournaments
+    where date = p_date and type = 'friendly'
+    limit 1;
+
+  if v_id is null then
+    insert into public.day_tournaments (date, title, location, is_evening, type, status)
+    values (p_date, 'Match amical', '', false, 'friendly', 'active')
+    on conflict (date, title, location) do update set updated_at = now()
+    returning id into v_id;
+  end if;
+
+  return v_id;
+end;
+$$;
+
+grant execute on function public.ensure_friendly_slot(date) to authenticated;
 
 -- -----------------------------------------------------------
 -- Table des demandes des utilisateurs. Un joueur peut faire
