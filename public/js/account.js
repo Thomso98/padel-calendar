@@ -18,8 +18,13 @@ function fillAccountForm(profile, user) {
   document.getElementById("account-license").value = profile.license_number || "";
   document.getElementById("account-birth-date").value = profile.birth_date || "";
   document.getElementById("account-ranking").value = profile.ranking || "";
-  document.getElementById("account-late-withdrawals").value =
-    `${profile.late_withdrawals_count || 0} / 3`;
+  // Affiche le nombre de retraits tardifs ENCORE disponibles (et non le
+  // nombre déjà utilisé) : plus parlant pour l'utilisateur, qui voit
+  // directement sa marge restante avant blocage du compte. Le
+  // fonctionnement complet est expliqué dans la note en bas de page
+  // (voir index.html).
+  const remaining = Math.max(0, 3 - (profile.late_withdrawals_count || 0));
+  document.getElementById("account-late-withdrawals").value = `${remaining} restant(s) sur 3`;
   document.getElementById("account-avatar-preview").src =
     profile.avatar_url || defaultAvatarUrl(profile, user);
 }
