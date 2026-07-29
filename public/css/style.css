@@ -181,7 +181,7 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   font-size: 12px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   background: #fff;
 }
 
@@ -190,7 +190,6 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .cal-day.rest { background: #f0f1f3; color: #777; }
 .cal-day.confirmed { background: #eaf1fc; border-color: var(--blue); }
-.cal-day.available { background: #eafaf1; border-color: var(--green); }
 .cal-day.past { opacity: 0.55; }
 
 .badge {
@@ -205,13 +204,34 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
 .badge.rest { background: #dcdfe3; color: #555; }
 .badge.confirmed { background: var(--blue); color: #fff; }
 .badge.available { background: var(--green); color: #fff; }
+.badge.evening { background: var(--blue); color: #fff; }
 .badge.pending { background: #f1c40f; color: #543a00; }
 .badge.approved { background: var(--green); color: #fff; }
 .badge.rejected { background: var(--red); color: #fff; }
 .badge.cancelled { background: #dcdfe3; color: #555; }
 
-.cal-day button.request-btn {
-  margin-top: auto;
+/* --- Cases de tournoi (une par tournoi, plusieurs possibles par jour) --- */
+.tournament-card {
+  border-radius: 8px;
+  padding: 6px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: #eafaf1;
+  border: 1px solid var(--green);
+}
+
+.tournament-card.evening {
+  background: #eaf1fc;
+  border-color: var(--blue);
+}
+
+.tournament-card.confirmed {
+  border-width: 2px;
+}
+
+.tournament-card button.request-btn {
+  margin-top: 2px;
   background: var(--green);
   color: #fff;
   border: none;
@@ -219,6 +239,10 @@ button:disabled { opacity: 0.5; cursor: not-allowed; }
   padding: 5px 6px;
   font-size: 11px;
   cursor: pointer;
+}
+
+.tournament-card.evening button.request-btn {
+  background: var(--blue);
 }
 
 .tournament-name { font-weight: 600; line-height: 1.2; }
