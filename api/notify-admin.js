@@ -23,8 +23,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const [day, profile] = await Promise.all([
-      fetchFromSupabase(`days?id=eq.${record.day_id}&select=*`),
+    const [tournament, profile] = await Promise.all([
+      fetchFromSupabase(`day_tournaments?id=eq.${record.tournament_id}&select=*`),
       fetchFromSupabase(`profiles?id=eq.${record.user_id}&select=*`),
     ]);
 
@@ -36,8 +36,8 @@ module.exports = async (req, res) => {
 
     const html = `
       <p><strong>${profile ? (profile.full_name || profile.email) : "Un utilisateur"}</strong>
-      souhaite jouer le tournoi <strong>${day ? (day.tournament_name || day.date) : ""}</strong>
-      ${day ? `(${day.date})` : ""}.</p>
+      souhaite jouer le tournoi <strong>${tournament ? tournament.title : ""}</strong>
+      ${tournament ? `(${tournament.date}${tournament.location ? " — " + tournament.location : ""}${tournament.is_evening ? " — soirée" : ""})` : ""}.</p>
       ${record.message ? `<p>Message : « ${record.message} »</p>` : ""}
       <p>Connectez-vous au tableau de bord admin pour valider ou refuser cette demande.</p>
     `;

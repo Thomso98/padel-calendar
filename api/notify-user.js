@@ -1,5 +1,7 @@
 // Appelé par un Database Webhook Supabase quand une ligne de
-// "requests" est mise à jour (validation / refus par l'admin).
+// "requests" est mise à jour (validation / refus par l'admin, ou
+// refus automatique suite à un conflit d'horaire avec un autre
+// tournoi validé le même jour).
 // Envoie un email au joueur qui avait fait la demande.
 
 const { sendEmail, fetchFromSupabase, checkWebhookSecret } = require("../lib/resend");
@@ -31,8 +33,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    const [day, profile] = await Promise.all([
-      fetchFromSupabase(`days?id=eq.${record.day_id}&select=*`),
+    const [tournament, profile] = await Promise.all([
+      fetchFromSupabase(`day_tournaments?id=eq.${record.tournament_id}&select=*`),
       fetchFromSupabase(`profiles?id=eq.${record.user_id}&select=*`),
     ]);
 
@@ -45,8 +47,8 @@ module.exports = async (req, res) => {
     const subject = approved ? "Votre demande a été validée" : "Votre demande a été refusée";
     const html = `
       <p>Bonjour ${profile.full_name || ""},</p>
-      <p>Votre demande pour le tournoi <strong>${day ? (day.tournament_name || day.date) : ""}</strong>
-      ${day ? `(${day.date})` : ""} a été
+      <p>Votre demande pour le tournoi <strong>${tournament ? tournament.title : ""}</strong>
+      ${tournament ? `(${tournament.date}${tournament.location ? " — " + tournament.location : ""})` : ""} a été
       <strong>${approved ? "validée ✅" : "refusée"}</strong>.</p>
     `;
 
