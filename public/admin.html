@@ -76,7 +76,8 @@
     </div>
 
     <div class="card">
-      <h2>Ajouter / modifier un jour</h2>
+      <h2>Ajouter / modifier un jour (repos ou tournoi confirmé)</h2>
+      <p class="msg">Les tournois "disponibles" proposés aux joueurs sont gérés plus bas (remplis automatiquement chaque jour, ou ajoutés à la main).</p>
       <form id="day-form" class="stack">
         <div>
           <label for="day-date">Date</label>
@@ -86,8 +87,7 @@
           <label for="day-type">Type de jour</label>
           <select id="day-type">
             <option value="rest">Jour de repos (aucune action possible)</option>
-            <option value="available">Tournoi disponible (les utilisateurs peuvent faire une demande)</option>
-            <option value="confirmed">Tournoi confirmé (vous jouez déjà)</option>
+            <option value="confirmed">Tournoi confirmé (vous jouez déjà, en dehors du site)</option>
           </select>
         </div>
         <div id="tournament-fields" class="stack">
@@ -106,12 +106,43 @@
     </div>
 
     <div class="card">
+      <h2>Tournois disponibles</h2>
+      <p class="msg">Une case = un tournoi proposé aux joueurs ce jour-là. Plusieurs tournois peuvent exister le même jour (lieux différents).</p>
+      <form id="tournament-form" class="stack" style="margin-bottom:20px;">
+        <div>
+          <label for="tournament-date">Date</label>
+          <input type="date" id="tournament-date" required />
+        </div>
+        <div>
+          <label for="tournament-title">Nom du tournoi</label>
+          <input type="text" id="tournament-title" required />
+        </div>
+        <div>
+          <label for="tournament-location">Lieu</label>
+          <input type="text" id="tournament-location" />
+        </div>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="tournament-evening" style="width:auto;" />
+          <label for="tournament-evening" style="margin:0;">Tournoi en soirée</label>
+        </div>
+        <button type="submit" class="primary">Ajouter ce tournoi</button>
+        <div id="tournament-form-msg" class="msg"></div>
+      </form>
+      <table class="admin-table">
+        <thead>
+          <tr><th>Date</th><th>Tournoi</th><th>Lieu</th><th>Créneau</th><th>Statut</th><th></th></tr>
+        </thead>
+        <tbody id="tournaments-table-body"></tbody>
+      </table>
+    </div>
+
+    <div class="card">
       <h2>Demandes en attente</h2>
       <div id="requests-list"></div>
     </div>
 
     <div class="card">
-      <h2>Tous les jours renseignés</h2>
+      <h2>Jours avec repos / tournoi confirmé</h2>
       <table class="admin-table">
         <thead>
           <tr><th>Date</th><th>Type</th><th>Tournoi</th><th>Lieu</th><th></th></tr>
