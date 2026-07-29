@@ -26,9 +26,12 @@ async function onAuthenticated(user, profile) {
 function switchAppTab(tab) {
   document.getElementById("tab-calendar").classList.toggle("active", tab === "calendar");
   document.getElementById("tab-my-tournaments").classList.toggle("active", tab === "my-tournaments");
+  document.getElementById("tab-account").classList.toggle("active", tab === "account");
   document.getElementById("calendar-view").classList.toggle("hidden", tab !== "calendar");
   document.getElementById("my-tournaments-view").classList.toggle("hidden", tab !== "my-tournaments");
+  document.getElementById("account-view").classList.toggle("hidden", tab !== "account");
   if (tab === "my-tournaments") loadMyTournaments();
+  if (tab === "account" && typeof loadAccountView === "function") loadAccountView();
 }
 
 function monthRangeISO(year, monthIndex) {
@@ -615,6 +618,7 @@ document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("cancel-modal-yes").addEventListener("click", confirmCancelRequest);
   document.getElementById("tab-calendar").addEventListener("click", () => switchAppTab("calendar"));
   document.getElementById("tab-my-tournaments").addEventListener("click", () => switchAppTab("my-tournaments"));
+  document.getElementById("tab-account").addEventListener("click", () => switchAppTab("account"));
   document.getElementById("withdraw-modal-back").addEventListener("click", closeWithdrawModal);
   document.getElementById("withdraw-modal-confirm").addEventListener("click", confirmWithdraw);
 });
