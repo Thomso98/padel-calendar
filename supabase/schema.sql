@@ -17,9 +17,15 @@ create table public.profiles (
   role text not null default 'user' check (role in ('user', 'admin')),
   approved boolean not null default false,
   -- Infos perso complémentaires (espace "Mon compte")
+  first_name text,
+  last_name text,
   license_number text,
   birth_date date,
   avatar_url text,
+  -- Classement padel : jamais saisi à la main par le joueur (voir
+  -- trigger prevent_privileged_self_update ci-dessous), alimenté
+  -- automatiquement à partir de license_number par la tâche planifiée
+  -- tenup-padel-ranking-lookup (recherche sur tenup.fft.fr/classement-padel).
   ranking text,
   -- Gestion des retraits tardifs / blocage de compte (géré uniquement par l'admin,
   -- voir le trigger prevent_privileged_self_update ci-dessous)
@@ -112,6 +118,12 @@ begin
     end if;
     if new.late_withdrawals_count is distinct from old.late_withdrawals_count then
       new.late_withdrawals_count := old.late_withdrawals_count;
+    end if;
+    -- Classement padel : jamais saisi à la main par le joueur, toujours
+    -- calculé automatiquement à partir de sa licence (voir tâche
+    -- planifiée tenup-padel-ranking-lookup).
+    if new.ranking is distinct from old.ranking then
+      new.ranking := old.ranking;
     end if;
   end if;
   return new;
