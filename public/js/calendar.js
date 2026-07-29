@@ -1,5 +1,6 @@
 // Logique du calendrier public (page index.html) : affichage du
-// mois, statut de chaque jour, et envoi des demandes.
+// mois, statut de chaque jour (repos / confirmé), tournois disponibles
+// (une case par tournoi) et envoi des demandes.
 
 const MOIS_FR = [
   "janvier", "février", "mars", "avril", "mai", "juin",
@@ -10,8 +11,9 @@ const JOURS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 let currentUser = null;
 let viewYear = new Date().getFullYear();
 let viewMonth = new Date().getMonth(); // 0-11
-let daysByDate = {};       // { 'YYYY-MM-DD': dayRow }
-let myRequestsByDayId = {}; // { day_id: requestRow } (dernière demande de l'utilisateur pour ce jour)
+let daysByDate = {};                // { 'YYYY-MM-DD': dayRow } (repos / confirmé, décidé par l'admin)
+let tournamentsByDate = {};         // { 'YYYY-MM-DD': [tournamentRow, ...] }
+let myRequestsByTournamentId = {};  // { tournament_id: requestRow } (dernière demande de l'utilisateur pour ce tournoi)
 
 async function onAuthenticated(user) {
   currentUser = user;
@@ -27,34 +29,44 @@ function monthRangeISO(year, monthIndex) {
 async function loadMonth() {
   const { start, end } = monthRangeISO(viewYear, viewMonth);
 
-  const { data: days, error: daysError } = await supabaseClient
-    .from("days")
-    .select("*")
-    .gte("date", start)
-    .lte("date", end);
+  const [{ data: days, error: daysError }, { data: tournaments, error: tError }] = await Promise.all([
+    supabaseClient.from("days").select("*").gte("date", start).lte("date", end),
+    supabaseClient
+      .from("day_tournaments")
+      .select("*")
+      .gte("date", start)
+      .lte("date", end)
+      .neq("status", "removed")
+      .order("is_evening", { ascending: true })
+      .order("title", { ascending: true }),
+  ]);
 
-  if (daysError) {
-    console.error(daysError);
-    return;
-  }
+  if (daysError) console.error(daysError);
+  if (tError) console.error(tError);
 
   daysByDate = {};
   (days || []).forEach((d) => { daysByDate[d.date] = d; });
 
-  const dayIds = (days || []).map((d) => d.id);
-  myRequestsByDayId = {};
-  if (dayIds.length > 0 && currentUser) {
+  tournamentsByDate = {};
+  (tournaments || []).forEach((t) => {
+    if (!tournamentsByDate[t.date]) tournamentsByDate[t.date] = [];
+    tournamentsByDate[t.date].push(t);
+  });
+
+  const tournamentIds = (tournaments || []).map((t) => t.id);
+  myRequestsByTournamentId = {};
+  if (tournamentIds.length > 0 && currentUser) {
     const { data: myRequests, error: reqError } = await supabaseClient
       .from("requests")
       .select("*")
       .eq("user_id", currentUser.id)
-      .in("day_id", dayIds);
+      .in("tournament_id", tournamentIds);
     if (!reqError) {
       (myRequests || []).forEach((r) => {
-        // garde la plus récente si plusieurs demandes existent pour le même jour
-        const existing = myRequestsByDayId[r.day_id];
+        // garde la plus récente si plusieurs demandes existent pour le même tournoi
+        const existing = myRequestsByTournamentId[r.tournament_id];
         if (!existing || new Date(r.created_at) > new Date(existing.created_at)) {
-          myRequestsByDayId[r.day_id] = r;
+          myRequestsByTournamentId[r.tournament_id] = r;
         }
       });
     }
@@ -107,81 +119,107 @@ function renderCalendar() {
       badge.className = "badge confirmed";
       badge.textContent = "Tournoi confirmé";
       cell.appendChild(badge);
-      appendTournamentInfo(cell, day);
-      const myApprovedReq = myRequestsByDayId[day.id];
-      if (myApprovedReq && myApprovedReq.status === "approved") {
-        const s = document.createElement("span");
-        s.className = "badge approved";
-        s.textContent = "Votre demande validée";
-        cell.appendChild(s);
+      if (day.tournament_name) {
+        const name = document.createElement("div");
+        name.className = "tournament-name";
+        name.textContent = day.tournament_name;
+        cell.appendChild(name);
       }
-    } else if (dayType === "available") {
-      const badge = document.createElement("span");
-      badge.className = "badge available";
-      badge.textContent = "Tournoi possible";
-      cell.appendChild(badge);
-      appendTournamentInfo(cell, day);
-
-      const myReq = myRequestsByDayId[day.id];
-      if (!past) {
-        if (myReq && myReq.status === "pending") {
-          const s = document.createElement("span");
-          s.className = "badge pending";
-          s.textContent = "Demande envoyée";
-          cell.appendChild(s);
-          addCancelButton(cell, day, myReq);
-        } else if (myReq && myReq.status === "rejected") {
-          const s = document.createElement("span");
-          s.className = "badge rejected";
-          s.textContent = "Refusée";
-          cell.appendChild(s);
-          addRequestButton(cell, day, "Redemander");
-        } else if (myReq && myReq.status === "cancelled") {
-          const s = document.createElement("span");
-          s.className = "badge cancelled";
-          s.textContent = "Demande annulée";
-          cell.appendChild(s);
-          addRequestButton(cell, day, "Redemander");
-        } else {
-          addRequestButton(cell, day, "Demander à jouer");
-        }
+      if (day.tournament_location) {
+        const loc = document.createElement("div");
+        loc.className = "tournament-loc";
+        loc.textContent = day.tournament_location;
+        cell.appendChild(loc);
       }
+    } else {
+      const list = tournamentsByDate[iso] || [];
+      list.forEach((t) => appendTournamentCard(cell, t, past));
     }
 
     grid.appendChild(cell);
   });
 }
 
-function appendTournamentInfo(cell, day) {
-  if (day.tournament_name) {
-    const name = document.createElement("div");
-    name.className = "tournament-name";
-    name.textContent = day.tournament_name;
-    cell.appendChild(name);
-  }
-  if (day.tournament_location) {
+function appendTournamentCard(cell, tournament, past) {
+  const card = document.createElement("div");
+  card.className =
+    "tournament-card" +
+    (tournament.is_evening ? " evening" : " day") +
+    (tournament.status === "confirmed" ? " confirmed" : "");
+
+  const badge = document.createElement("span");
+  badge.className =
+    "badge " +
+    (tournament.status === "confirmed" ? "confirmed" : tournament.is_evening ? "evening" : "available");
+  badge.textContent =
+    tournament.status === "confirmed" ? "Validé" : tournament.is_evening ? "Soirée" : "Tournoi possible";
+  card.appendChild(badge);
+
+  const name = document.createElement("div");
+  name.className = "tournament-name";
+  name.textContent = tournament.title;
+  card.appendChild(name);
+
+  if (tournament.location) {
     const loc = document.createElement("div");
     loc.className = "tournament-loc";
-    loc.textContent = day.tournament_location;
-    cell.appendChild(loc);
+    loc.textContent = tournament.location;
+    card.appendChild(loc);
   }
+
+  if (!past) {
+    if (tournament.status === "confirmed") {
+      const myReq = myRequestsByTournamentId[tournament.id];
+      if (myReq && myReq.status === "approved") {
+        const s = document.createElement("span");
+        s.className = "badge approved";
+        s.textContent = "Votre demande validée";
+        card.appendChild(s);
+      }
+    } else {
+      const myReq = myRequestsByTournamentId[tournament.id];
+      if (myReq && myReq.status === "pending") {
+        const s = document.createElement("span");
+        s.className = "badge pending";
+        s.textContent = "Demande envoyée";
+        card.appendChild(s);
+        addCancelButton(card, tournament, myReq);
+      } else if (myReq && myReq.status === "rejected") {
+        const s = document.createElement("span");
+        s.className = "badge rejected";
+        s.textContent = "Refusée";
+        card.appendChild(s);
+        addRequestButton(card, tournament, "Redemander");
+      } else if (myReq && myReq.status === "cancelled") {
+        const s = document.createElement("span");
+        s.className = "badge cancelled";
+        s.textContent = "Demande annulée";
+        card.appendChild(s);
+        addRequestButton(card, tournament, "Redemander");
+      } else {
+        addRequestButton(card, tournament, "Demander à jouer");
+      }
+    }
+  }
+
+  cell.appendChild(card);
 }
 
-function addRequestButton(cell, day, label) {
+function addRequestButton(card, tournament, label) {
   const btn = document.createElement("button");
   btn.className = "request-btn";
   btn.textContent = label;
-  btn.addEventListener("click", () => openRequestModal(day));
-  cell.appendChild(btn);
+  btn.addEventListener("click", () => openRequestModal(tournament));
+  card.appendChild(btn);
 }
 
-function addCancelButton(cell, day, request) {
+function addCancelButton(card, tournament, request) {
   const btn = document.createElement("button");
   btn.className = "request-btn";
   btn.style.background = "#c0392b";
   btn.textContent = "Annuler ma demande";
-  btn.addEventListener("click", () => openCancelModal(day, request));
-  cell.appendChild(btn);
+  btn.addEventListener("click", () => openCancelModal(tournament, request));
+  card.appendChild(btn);
 }
 
 function showGlobalMessage(text) {
@@ -193,11 +231,11 @@ function showGlobalMessage(text) {
 }
 
 // --- Modal de demande ---
-function openRequestModal(day) {
+function openRequestModal(tournament) {
   document.getElementById("modal-day-name").textContent =
-    (day.tournament_name || "Tournoi") + " — " + day.date;
+    (tournament.title || "Tournoi") + " — " + tournament.date + (tournament.location ? " — " + tournament.location : "");
   document.getElementById("modal-message").value = "";
-  document.getElementById("request-modal").dataset.dayId = day.id;
+  document.getElementById("request-modal").dataset.tournamentId = tournament.id;
   document.getElementById("modal-error").textContent = "";
   document.getElementById("request-modal").classList.remove("hidden");
 }
@@ -207,13 +245,13 @@ function closeRequestModal() {
 }
 
 async function submitRequest() {
-  const dayId = document.getElementById("request-modal").dataset.dayId;
+  const tournamentId = document.getElementById("request-modal").dataset.tournamentId;
   const message = document.getElementById("modal-message").value.trim();
   const errEl = document.getElementById("modal-error");
   errEl.textContent = "";
 
   const { error } = await supabaseClient.from("requests").insert({
-    day_id: dayId,
+    tournament_id: tournamentId,
     user_id: currentUser.id,
     message: message || null,
   });
@@ -228,9 +266,9 @@ async function submitRequest() {
 }
 
 // --- Modal d'annulation (étape 2 : confirmation) ---
-function openCancelModal(day, request) {
+function openCancelModal(tournament, request) {
   document.getElementById("cancel-modal-text").textContent =
-    `Voulez-vous vraiment annuler votre demande pour "${day.tournament_name || "ce tournoi"}" du ${day.date} ?`;
+    `Voulez-vous vraiment annuler votre demande pour "${tournament.title || "ce tournoi"}" du ${tournament.date} ?`;
   document.getElementById("cancel-modal-error").textContent = "";
   document.getElementById("cancel-modal").dataset.requestId = request.id;
   document.getElementById("cancel-modal").classList.remove("hidden");
